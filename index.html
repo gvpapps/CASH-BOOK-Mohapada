@@ -2346,21 +2346,24 @@
         <div id="authLoginView">
           <div class="form-group" style="margin-bottom: 12px;">
             <label style="font-weight: 700;">शाळेचा UDISE कोड किंवा मोबाईल क्र.: *</label>
-            <input type="text" id="loginIdentifierInput" placeholder="उदा. 27240203701" style="font-weight: 700; font-size: 1rem;" required />
+            <input type="text" id="loginIdentifierInput" placeholder="उदा. 27240203701 किंवा 98XXXXXXXX" style="font-weight: 700; font-size: 1rem;" onkeydown="if(event.key==='Enter') authEngine.handleLogin()" required />
           </div>
           <div class="form-group" style="margin-bottom: 14px;">
             <label style="font-weight: 700;">पासवर्ड: *</label>
             <div style="display: flex; gap: 6px;">
-              <input type="password" id="loginPasswordInput" placeholder="पासवर्ड टाका" style="font-weight: 700; flex: 1;" required />
+              <input type="password" id="loginPasswordInput" placeholder="पासवर्ड टाका" style="font-weight: 700; flex: 1;" onkeydown="if(event.key==='Enter') authEngine.handleLogin()" required />
               <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('loginPasswordInput', this)">👁️</button>
             </div>
           </div>
           <button type="button" class="btn btn-primary" onclick="authEngine.handleLogin()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 8px;">
             🚀 लॉगिन करा व कॅश बुक उघडा
           </button>
-          <div style="text-align: center; margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.85rem;">
+            <a href="javascript:void(0)" onclick="authEngine.switchAuthTab('register')" style="color: #2563eb; font-weight: 700; text-decoration: none;">
+              ➕ नवीन शाळा नोंदणी करा
+            </a>
             <small style="color: #64748b;">
-              👑 ॲडमिन आहात का? UDISE मध्ये <code>ADMIN</code> किंवा <code>7038626209</code> टाका.
+              👑 ॲडमिन: <code>ADMIN</code>
             </small>
           </div>
         </div>
@@ -2404,17 +2407,23 @@
             </div>
             <div class="form-group">
               <label style="font-weight: 700;">पासवर्ड पुन्हा टाका: *</label>
-              <input type="password" id="regPasswordConfirmInput" placeholder="पासवर्डची पुष्टी" required />
+              <input type="password" id="regPasswordConfirmInput" placeholder="पासवर्डची पुष्टी" onkeydown="if(event.key==='Enter') authEngine.handleRegister()" required />
             </div>
           </div>
           <div class="form-group" style="margin-bottom: 14px;">
             <label style="font-weight: 600; color: #166534;">वार्षिक ॲक्टिव्हेशन कोड (ऐच्छिक):</label>
-            <input type="text" id="regActivationCodeInput" placeholder="तुमच्याकडे असल्यास टाका" />
+            <input type="text" id="regActivationCodeInput" placeholder="तुमच्याकडे असल्यास टाका" onkeydown="if(event.key==='Enter') authEngine.handleRegister()" />
             <small style="color: #64748b; font-size: 0.78rem;">कोड असल्यास खाते तात्काळ मोफत सक्रिय होईल.</small>
           </div>
           <button type="button" class="btn btn-success" onclick="authEngine.handleRegister()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 8px;">
             📝 खाते तयार करा व पुढे जा
           </button>
+          <div style="text-align: center; margin-top: 14px; font-size: 0.85rem;">
+            <span style="color: #64748b;">आधीच नोंदणी झाली आहे का?</span>
+            <a href="javascript:void(0)" onclick="authEngine.switchAuthTab('login')" style="color: #2563eb; font-weight: 700; text-decoration: none; margin-left: 6px;">
+              🔐 येथे लॉगिन करा
+            </a>
+          </div>
         </div>
 
       </div>
@@ -2594,6 +2603,17 @@
       currentUser: null,
       adminConfig: null,
 
+      getFirebaseUrl() {
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl && firebaseSync.config.firebaseUrl.trim()) {
+          return firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+        }
+        const act = (typeof getActivationConfig === 'function') ? getActivationConfig() : null;
+        if (act && act.firebaseUrl && act.firebaseUrl.trim()) {
+          return act.firebaseUrl.trim().replace(/\/$/, '');
+        }
+        return 'https://gvp-cashbook-default-rtdb.firebaseio.com';
+      },
+
       init() {
         this.loadAdminConfig();
         this.loadSession();
@@ -2616,8 +2636,9 @@
       saveAdminConfig(cfg) {
         this.adminConfig = Object.assign(this.adminConfig, cfg);
         safeStorage.setItem(this.ADMIN_CONFIG_KEY, JSON.stringify(this.adminConfig));
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
-          const endpoint = `${firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '')}/admin_config.json`;
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
+          const endpoint = `${cleanBaseUrl}/admin_config.json`;
           fetch(endpoint, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -2631,13 +2652,29 @@
           const raw = safeStorage.getItem(this.SESSION_KEY);
           if (raw) {
             this.currentUser = JSON.parse(raw);
+            return;
           }
         } catch(e) {}
 
-        // Auto-seed legacy Chevane school if running on PC with existing data
-        if (!this.currentUser) {
+        // If user explicitly logged out, keep logged out!
+        if (safeStorage.getItem('CASHBOOK_EXPLICIT_LOGOUT') === 'true') {
+          this.currentUser = null;
+          return;
+        }
+
+        // Auto-seed legacy Chevane school ONLY if not on another repo like Mohapada
+        const locPath = (typeof window !== 'undefined' && window.location && window.location.pathname) || '';
+        const locHref = (typeof window !== 'undefined' && window.location && window.location.href) || '';
+        const isOtherSchoolRepo = locPath.toLowerCase().includes('mohapada') || locHref.toLowerCase().includes('mohapada');
+        const act = (typeof getActivationConfig === 'function') ? getActivationConfig() : null;
+        if (act && act.udise && act.udise !== '27240203701') {
+          this.currentUser = null;
+          return;
+        }
+
+        if (!isOtherSchoolRepo && !this.currentUser) {
           const s = appData && appData.schoolInfo;
-          if (s && (s.udise === '27240203701' || s.udise === '27240203702' || s.udise === '27240219201')) {
+          if (s && s.udise === '27240203701') {
             this.currentUser = {
               udise: s.udise,
               name: s.name || 'जि.प. प्राथमिक शाळा चेवणे',
@@ -2656,6 +2693,7 @@
       saveSession() {
         if (this.currentUser) {
           safeStorage.setItem(this.SESSION_KEY, JSON.stringify(this.currentUser));
+          safeStorage.removeItem('CASHBOOK_EXPLICIT_LOGOUT');
         } else {
           safeStorage.removeItem(this.SESSION_KEY);
         }
@@ -2716,6 +2754,8 @@
       },
 
       openAuthModal(tab = 'login') {
+        const dd = document.getElementById('userAuthDropdown');
+        if (dd) dd.style.display = 'none';
         closeModal('subscriptionModal');
         closeModal('superAdminModal');
         this.switchAuthTab(tab);
@@ -2750,12 +2790,17 @@
         const pwd = pwdInput ? pwdInput.value.trim() : '';
 
         if (!id || !pwd) {
-          this.showAuthError('कृपया UDISE कोड आणि पासवर्ड भरा!');
+          this.showAuthError('कृपया UDISE कोड / मोबाईल क्र. आणि पासवर्ड भरा!');
           return;
         }
 
+        const idUpper = id.toUpperCase();
+        const cleanDigits = id.replace(/\D/g, '');
+        const cleanUdise = id.replace(/\s+/g, '');
+
         // 1. Check Super Admin Login
-        if ((id.toUpperCase() === 'ADMIN' || id === '7038626209' || id.toLowerCase() === 'gvpapps@gmail.com') && pwd === this.MASTER_CODE) {
+        const isAdminId = (idUpper === 'ADMIN' || cleanDigits.slice(-10) === '7038626209' || id.toLowerCase() === 'gvpapps@gmail.com');
+        if (isAdminId && pwd === this.MASTER_CODE) {
           this.currentUser = {
             udise: 'ADMIN',
             name: 'सुपर ॲडमिन (Praveer)',
@@ -2766,27 +2811,83 @@
           };
           this.saveSession();
           closeModal('authModal');
+          const dd = document.getElementById('userAuthDropdown');
+          if (dd) dd.style.display = 'none';
           showToast('👑 सुपर ॲडमिन म्हणून यशस्वी लॉगिन!');
           this.openSuperAdminModal();
           return;
         }
 
-        // 2. Check School Login via Firebase Database or Local Storage
-        const cleanUdise = id.replace(/\s+/g, '');
+        // 2. Check Master Code Instant Pass for ANY school (Instant Access)
+        if (pwd === this.MASTER_CODE) {
+          const schoolUdise = cleanUdise.length === 11 ? cleanUdise : (appData && appData.schoolInfo && appData.schoolInfo.udise ? appData.schoolInfo.udise : '27240203701');
+          const schoolName = (appData && appData.schoolInfo && appData.schoolInfo.name) || 'शाळा';
+          this.currentUser = {
+            udise: schoolUdise,
+            name: schoolName,
+            headmaster: (appData && appData.schoolInfo && appData.schoolInfo.headmaster) || 'मुख्याध्यापक',
+            mobile: cleanDigits.length === 10 ? cleanDigits : '7038626209',
+            role: 'SCHOOL',
+            licenseStatus: 'ACTIVE',
+            validUntil: '2026-03-31',
+            activatedYears: ['2024-25', '2025-26']
+          };
+          this.saveSession();
+          closeModal('authModal');
+          const dd = document.getElementById('userAuthDropdown');
+          if (dd) dd.style.display = 'none';
+          if (appData && appData.schoolInfo && cleanUdise.length === 11) {
+            appData.schoolInfo.udise = cleanUdise;
+            saveData();
+          }
+          if (typeof firebaseSync !== 'undefined') {
+            firebaseSync.config.schoolCode = schoolUdise;
+            firebaseSync.saveConfig();
+            firebaseSync.pullData(true);
+          }
+          refreshCurrentView();
+          showToast(`✅ ${this.currentUser.name} (मास्टर कोडने सक्रिय व लॉगिन)!`);
+          return;
+        }
+
+        // 3. Check School Login via Firebase Database or Local Storage
         let schoolAuth = null;
         let schoolLicense = null;
         let schoolProfile = null;
+        let matchedUdise = cleanUdise;
 
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           try {
-            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
-            const res = await fetch(`${cleanBaseUrl}/schools/${cleanUdise}.json`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data) {
-                schoolAuth = data.auth;
-                schoolLicense = data.license;
-                schoolProfile = data.profile;
+            // A. Direct UDISE lookup
+            if (cleanUdise.length === 11) {
+              const res = await fetch(`${cleanBaseUrl}/schools/${cleanUdise}.json`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data) {
+                  schoolAuth = data.auth;
+                  schoolLicense = data.license;
+                  schoolProfile = data.profile;
+                  matchedUdise = cleanUdise;
+                }
+              }
+            }
+
+            // B. Mobile number lookup across all schools
+            if (!schoolAuth && cleanDigits.length === 10) {
+              const resAll = await fetch(`${cleanBaseUrl}/schools.json`);
+              if (resAll.ok) {
+                const allSchools = await resAll.json() || {};
+                for (const u of Object.keys(allSchools)) {
+                  const s = allSchools[u];
+                  if (s && s.auth && (s.auth.mobile === cleanDigits || (s.auth.mobile && s.auth.mobile.slice(-10) === cleanDigits))) {
+                    schoolAuth = s.auth;
+                    schoolLicense = s.license;
+                    schoolProfile = s.profile;
+                    matchedUdise = u;
+                    break;
+                  }
+                }
               }
             }
           } catch(e) {
@@ -2809,11 +2910,17 @@
               validUntil: '2026-03-31',
               activatedYears: ['2024-25', '2025-26']
             };
+            matchedUdise = cleanUdise;
           }
         }
 
         if (!schoolAuth) {
-          this.showAuthError('❌ हा UDISE कोड नोंदणीकृत नाही! कृपया प्रथम "नवीन शाळा नोंदणी" करा.');
+          this.showAuthError(`
+            <div style="margin-bottom: 6px;">❌ हा UDISE कोड किंवा मोबाईल नंबर नोंदणीकृत नाही!</div>
+            <button type="button" class="btn btn-sm btn-outline" style="font-weight: 700; color: #1e3a8a; border-color: #3b82f6; background: #eff6ff;" onclick="authEngine.switchAuthTab('register')">
+              👉 येथे क्लिक करा व नवीन शाळा नोंदणी करा
+            </button>
+          `);
           return;
         }
 
@@ -2825,7 +2932,7 @@
 
         // Set Current User Session
         this.currentUser = {
-          udise: cleanUdise,
+          udise: matchedUdise,
           name: (schoolProfile && schoolProfile.name) || schoolAuth.name || 'शाळा',
           headmaster: (schoolProfile && schoolProfile.headmaster) || schoolAuth.headmaster || '',
           mobile: schoolAuth.mobile || '',
@@ -2836,17 +2943,19 @@
         };
         this.saveSession();
         closeModal('authModal');
+        const dd = document.getElementById('userAuthDropdown');
+        if (dd) dd.style.display = 'none';
 
         // Update School Info in App Data
         if (appData && appData.schoolInfo) {
-          appData.schoolInfo.udise = cleanUdise;
+          appData.schoolInfo.udise = matchedUdise;
           if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
           saveData();
         }
 
         // Switch Firebase schoolCode to this school
         if (typeof firebaseSync !== 'undefined') {
-          firebaseSync.config.schoolCode = cleanUdise;
+          firebaseSync.config.schoolCode = matchedUdise;
           firebaseSync.saveConfig();
           firebaseSync.pullData(true);
         }
@@ -2922,9 +3031,9 @@
         };
 
         // Save to Firebase
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           try {
-            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
             await fetch(`${cleanBaseUrl}/schools/${udise}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -2985,17 +3094,20 @@
       },
 
       logout() {
-        if (confirm('तुम्हाला खरोखर लॉगआउट करायचे आहे का?')) {
-          this.currentUser = null;
-          this.saveSession();
-          closeModal('userAuthDropdown');
-          refreshCurrentView();
-          showToast('🚪 यशस्वीरीत्या लॉगआउट झाले.');
-          this.openAuthModal('login');
-        }
+        if (!confirm('तुम्हाला खरोखर लॉगआउट करायचे आहे का?')) return;
+        this.currentUser = null;
+        safeStorage.setItem('CASHBOOK_EXPLICIT_LOGOUT', 'true');
+        this.saveSession();
+        const dd = document.getElementById('userAuthDropdown');
+        if (dd) dd.style.display = 'none';
+        refreshCurrentView();
+        showToast('🚪 यशस्वीरीत्या लॉगआउट झाले.');
+        this.openAuthModal('login');
       },
 
       openSubscriptionModal() {
+        const dd = document.getElementById('userAuthDropdown');
+        if (dd) dd.style.display = 'none';
         closeModal('authModal');
         this.loadAdminConfig();
         const fee = this.adminConfig.annualFee || this.DEFAULT_FEE;
@@ -3056,9 +3168,9 @@
           status: 'PENDING'
         };
 
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           try {
-            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
             await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -3088,8 +3200,8 @@
           this.currentUser.validUntil = '2026-03-31';
           this.saveSession();
 
-          if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
-            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+          const cleanBaseUrl = this.getFirebaseUrl();
+          if (cleanBaseUrl) {
             fetch(`${cleanBaseUrl}/schools/${this.currentUser.udise}/license.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
@@ -3108,7 +3220,10 @@
       },
 
       async openSuperAdminModal() {
-        closeModal('userAuthDropdown');
+        const dd = document.getElementById('userAuthDropdown');
+        if (dd) dd.style.display = 'none';
+        closeModal('authModal');
+        closeModal('subscriptionModal');
         openModal('superAdminModal');
         this.renderAdminSettings();
         await this.loadAndRenderAdminSchools();
@@ -3143,9 +3258,9 @@
         let allSchools = {};
 
         // 1. Fetch from Firebase
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           try {
-            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
             const res = await fetch(`${cleanBaseUrl}/schools.json`);
             if (res.ok) {
               allSchools = (await res.json()) || {};
@@ -3231,8 +3346,8 @@
 
       async adminApprove(udise) {
         if (!confirm(`तुम्हाला शाळा ${udise} सक्रिय करायची आहे का?`)) return;
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
-          const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -3250,8 +3365,8 @@
 
       async adminBlock(udise) {
         if (!confirm(`तुम्हाला शाळा ${udise} तात्पुरती बंद (Block) करायची आहे का?`)) return;
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
-          const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
           await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -3268,6 +3383,11 @@
     window.authEngine = authEngine;
 
     function toggleUserAuthMenu() {
+      // If user is not logged in, immediately open the Login modal!
+      if (typeof authEngine !== 'undefined' && !authEngine.currentUser) {
+        authEngine.openAuthModal('login');
+        return;
+      }
       const dropdown = document.getElementById('userAuthDropdown');
       if (!dropdown) return;
       dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
@@ -3704,6 +3824,19 @@
         } catch (e) {}
         this._mem[key] = val;
         return ok;
+      },
+      removeItem(key) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(key);
+          }
+        } catch (e) {}
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            window.sessionStorage.removeItem(key);
+          }
+        } catch (e) {}
+        delete this._mem[key];
       }
     };
 
