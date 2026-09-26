@@ -1249,6 +1249,126 @@
       from { transform: translateY(20px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
+
+    /* --- AUTH & MULTI-TENANT STYLES --- */
+    .auth-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .auth-pill.active {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(74, 222, 128, 0.6);
+      color: #ffffff;
+    }
+    .auth-pill.pending {
+      background: rgba(234, 179, 8, 0.25);
+      border: 1px solid rgba(250, 204, 21, 0.6);
+      color: #fef08a;
+    }
+    .auth-pill.admin {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.4));
+      border: 1px solid #fbbf24;
+      color: #ffffff;
+    }
+    .auth-pill.unauth {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+    }
+    .auth-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .auth-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      min-width: 250px;
+      z-index: 1050;
+      border: 1px solid #cbd5e1;
+      overflow: hidden;
+      animation: modalFade 0.15s ease-out;
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      text-align: left;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .dropdown-item:hover {
+      background: #f1f5f9;
+    }
+    .auth-tab-bar {
+      display: flex;
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 16px;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #64748b;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .auth-tab-btn.active {
+      color: #2563eb;
+      border-color: #2563eb;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .badge-active { background: #dcfce7; color: #166534; }
+    .badge-pending { background: #fef9c3; color: #854d0e; }
+    .badge-blocked { background: #fee2e2; color: #991b1b; }
+    .admin-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .admin-stat-card {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .admin-stat-val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      display: block;
+      margin-top: 4px;
+    }
+
   </style>
 </head>
 <body>
@@ -1282,6 +1402,29 @@
           <div class="cloud-pill" id="cloudStatusPill" onclick="switchTab('firebase')" title="Google Firebase लाईव्ह क्लाऊड सिंक नियंत्रण">
             <span id="cloudStatusDot" class="status-dot"></span>
             <span id="cloudStatusText">☁️ सिंक</span>
+          </div>
+          <!-- User Profile / Auth Pill -->
+          <div style="position: relative;">
+            <div class="auth-pill unauth" id="userAuthPill" onclick="toggleUserAuthMenu()" title="खाते व लॉगिन तपशील">
+              <span id="userAuthIcon">👤</span>
+              <span id="userAuthName" class="nav-text">लॉगिन</span>
+            </div>
+            <!-- Auth Dropdown Menu -->
+            <div class="auth-dropdown" id="userAuthDropdown" style="display: none;">
+              <div id="authDropdownInfo" style="padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; background: #f8fafc;"></div>
+              <button type="button" class="dropdown-item" id="adminPanelMenuBtn" onclick="authEngine.openSuperAdminModal()" style="display: none; color: #1e3a8a; font-weight: 700;">
+                👑 सुपर ॲडमिन डॅशबोर्ड
+              </button>
+              <button type="button" class="dropdown-item" id="mySubscriptionMenuBtn" onclick="authEngine.openSubscriptionModal()" style="display: none; color: #166534; font-weight: 600;">
+                💳 वर्गणी व पेमेंट स्थिती
+              </button>
+              <button type="button" class="dropdown-item" id="loginOrRegisterMenuBtn" onclick="authEngine.openAuthModal('login')" style="color: #2563eb; font-weight: 600;">
+                🔐 लॉगिन / नवीन नोंदणी
+              </button>
+              <button type="button" class="dropdown-item" id="logoutMenuBtn" onclick="authEngine.logout()" style="display: none; color: #dc2626; font-weight: 600;">
+                🚪 लॉगआउट (Logout)
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1644,6 +1787,22 @@
         </div>
       </div>
 
+      <!-- 1.1 App Activation & Firebase Database Card -->
+      <div class="card" style="border-top: 4px solid #16a34a; background: #f8fafc;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div class="card-title" style="color: #166534;">🔐 ॲप ॲक्टिव्हेशन व Firebase क्लाऊड डेटाबेस</div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="openFirstTimeSetupModal(true)" style="border-color: #16a34a; color: #166534; font-weight: 700;">
+            ✏️ ॲक्टिव्हेशन व Firebase लिंक बदला
+          </button>
+        </div>
+        <p style="color: #475569; font-size: 0.84rem; margin-bottom: 12px;">
+          या GitHub लिंकसाठी शाळेचा UDISE कोड, अधिकृत ॲक्टिव्हेशन कोड आणि स्वतंत्र Google Firebase डेटाबेस जोडणी खालीलप्रमाणे आहे:
+        </p>
+        <div id="activationInfoDisplayCard" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 6px;">
+          <!-- Dynamically populated by renderActivationInfoCard() -->
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <div class="card-title">💾 डेटा बॅकअप व सुरक्षितता</div>
@@ -1968,7 +2127,15 @@
       <div class="modal-body">
         <div class="form-group">
           <label>नवीन आर्थिक वर्ष (Financial Year): *</label>
-          <input type="text" id="newYearInput" placeholder="उदा. 2025-26" required />
+          <input type="text" id="newYearInput" placeholder="उदा. 2026-27" required />
+        </div>
+        <div class="form-group">
+          <label>वार्षिक ॲक्टिव्हेशन कोड (Yearly Activation Code): *</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="password" id="newYearActivationCodeInput" placeholder="Praveer@2503" style="font-weight: 700; flex: 1;" required />
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('newYearActivationCodeInput', this)" title="कोड पहा / लपवा">👁️</button>
+          </div>
+          <small style="color: #64748b; font-size: 0.8rem;">नवीन आर्थिक वर्ष जोडण्यासाठी वार्षिक ॲक्टिव्हेशन कोड प्रविष्ट करा.</small>
         </div>
         <div class="form-group">
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer; font-size: 0.88rem;">
@@ -2053,11 +2220,1307 @@
     </div>
   </div>
 
+  <!-- 6. First-Time Setup & Activation Modal -->
+  <div class="modal-backdrop" id="setupActivationModal" style="z-index: 9999;">
+    <div class="modal-box" style="max-width: 520px; border-top: 5px solid #2563eb;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #ffffff; border-radius: 8px 8px 0 0; padding: 16px;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.15rem; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+            🔐 शाळा कॅश बुक - ॲक्टिव्हेशन व सेटअप
+          </h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #bfdbfe;">
+            नवीन GitHub लिंक किंवा नवीन डिव्हाइसवर ॲप सुरू करण्यासाठी खालील माहिती भरा
+          </p>
+        </div>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        
+        <!-- 1. School UDISE -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-weight: 700; color: #1e293b;">🏫 शाळेचा UDISE कोड: *</label>
+          <input type="text" id="setupUdiseInput" placeholder="उदा. 27240203701" maxlength="11" style="font-weight: 700; letter-spacing: 1px; font-size: 1rem; border: 1.5px solid #94a3b8;" required />
+          <small style="color: #64748b; font-size: 0.78rem;">शाळेचा अधिकृत ११ अंकी UDISE क्रमांक टाका (हा क्लाऊड डेटाबेसमधील मुख्य आयडी असेल).</small>
+        </div>
+
+        <!-- 2. School Name (Optional) -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-weight: 600; color: #334155;">🏢 शाळेचे नाव (School Name):</label>
+          <input type="text" id="setupSchoolNameInput" placeholder="उदा. जि.प. प्राथमिक शाळा चेवणे" style="border: 1.5px solid #cbd5e1;" />
+        </div>
+
+        <!-- 3. Activation Code -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-weight: 700; color: #1e293b;">🔑 वार्षिक ॲक्टिव्हेशन कोड (Activation Code): *</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="password" id="setupActivationCodeInput" placeholder="Praveer@2503" style="font-weight: 700; font-size: 1rem; border: 1.5px solid #94a3b8; flex: 1;" required />
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('setupActivationCodeInput', this)" title="कोड पहा / लपवा" style="padding: 6px 12px; font-size: 1rem;">👁️</button>
+          </div>
+          <small style="color: #64748b; font-size: 0.78rem;">अधिकृत वार्षिक ॲक्टिव्हेशन कोड प्रविष्ट करा.</small>
+        </div>
+
+        <!-- 4. Firebase Database URL -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-weight: 700; color: #1e293b;">☁️ Google Firebase Database URL (स्वतंत्र लिंक):</label>
+          <input type="url" id="setupFirebaseUrlInput" placeholder="https://your-school-rtdb.firebaseio.com/" style="border: 1.5px solid #94a3b8; font-size: 0.9rem;" />
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px; margin-top: 6px;">
+            <small style="color: #166534; font-size: 0.8rem; line-height: 1.4; display: block;">
+              💡 <strong>टीप:</strong> प्रत्येक GitHub लिंकसाठी तुमचा स्वतंत्र Firebase Realtime Database URL येथे टाका. एकदा सेव्ह केल्यावर पुढील वेळी पुन्हा टाकण्याची गरज भासणार नाही.
+            </small>
+          </div>
+        </div>
+
+        <!-- Error / Alert Banner -->
+        <div id="setupErrorMsg" style="display: none; background: #fef2f2; border: 1.5px solid #f87171; color: #991b1b; padding: 10px; border-radius: 6px; font-size: 0.88rem; font-weight: 600; margin-top: 10px;"></div>
+
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+        <button type="button" class="btn btn-primary" onclick="submitFirstTimeSetup()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 8px; box-shadow: 0 4px 6px rgba(37,99,235,0.25);">
+          🚀 ॲप सक्रिय करा व सुरू करा (Activate & Launch)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Yearly Activation Modal -->
+  <div class="modal-backdrop" id="yearlyActivationModal" style="z-index: 9999;">
+    <div class="modal-box" style="max-width: 480px; border-top: 5px solid #16a34a;">
+      <div class="modal-header" style="background: #f0fdf4; border-bottom: 1.5px solid #bbf7d0; padding: 14px 16px;">
+        <h3 style="color: #166534; margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 6px;">
+          🔐 वार्षिक ॲक्टिव्हेशन (Yearly Activation)
+        </h3>
+        <button class="modal-close" onclick="closeModal('yearlyActivationModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <p style="color: #334155; font-size: 0.9rem; margin-bottom: 12px;">
+          आर्थिक वर्ष <strong id="yearlyActYearDisplay" style="color: #15803d; font-size: 1.05rem;">2026-27</strong> चे कॅश बुक अनलॉक करण्यासाठी वार्षिक ॲक्टिव्हेशन कोड प्रविष्ट करा.
+        </p>
+
+        <div class="form-group">
+          <label style="font-weight: 700;">वार्षिक ॲक्टिव्हेशन कोड: *</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="password" id="yearlyActivationCodeInput" placeholder="Praveer@2503" style="font-weight: 700; font-size: 1rem; flex: 1;" required />
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('yearlyActivationCodeInput', this)">👁️</button>
+          </div>
+          <small style="color: #64748b; font-size: 0.8rem;">हा कोड वर्षाला एकदाच प्रविष्ट करावा लागतो.</small>
+        </div>
+
+        <div id="yearlyActErrorMsg" style="display: none; background: #fef2f2; border: 1px solid #f87171; color: #991b1b; padding: 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; margin-top: 8px;"></div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('yearlyActivationModal')">रद्द करा</button>
+        <button type="button" class="btn btn-success" onclick="submitYearlyActivation()" style="font-weight: 700;">🔓 वर्ष अनलॉक करा</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Multi-User Authentication Modal (Login / Sign Up) -->
+  <div class="modal-backdrop" id="authModal" style="z-index: 9999;">
+    <div class="modal-box" style="max-width: 500px; border-top: 5px solid #2563eb;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a, #2563eb); color: #ffffff; padding: 16px;">
+        <div>
+          <h3 style="margin: 0; color: #ffffff; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+            🏫 शाळा कॅश बुक - अधिकृत खाते
+          </h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #bfdbfe;">
+            तुमच्या शाळेचे कॅश बुक वापरण्यासाठी लॉगिन करा किंवा नवीन नोंदणी करा
+          </p>
+        </div>
+        <button class="modal-close" onclick="closeModal('authModal')" style="color: #ffffff;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        
+        <!-- Tab Bar -->
+        <div class="auth-tab-bar">
+          <div class="auth-tab-btn active" id="tabAuthLoginBtn" onclick="authEngine.switchAuthTab('login')">
+            🔐 लॉगिन (Login)
+          </div>
+          <div class="auth-tab-btn" id="tabAuthRegBtn" onclick="authEngine.switchAuthTab('register')">
+            📝 नवीन शाळा नोंदणी
+          </div>
+        </div>
+
+        <!-- Error Msg Banner -->
+        <div id="authErrorMsg" style="display: none; background: #fef2f2; border: 1.5px solid #f87171; color: #991b1b; padding: 10px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; margin-bottom: 14px;"></div>
+
+        <!-- 1. LOGIN VIEW -->
+        <div id="authLoginView">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-weight: 700;">शाळेचा UDISE कोड किंवा मोबाईल क्र.: *</label>
+            <input type="text" id="loginIdentifierInput" placeholder="उदा. 27240203701" style="font-weight: 700; font-size: 1rem;" required />
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 700;">पासवर्ड: *</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="password" id="loginPasswordInput" placeholder="पासवर्ड टाका" style="font-weight: 700; flex: 1;" required />
+              <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('loginPasswordInput', this)">👁️</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="authEngine.handleLogin()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 8px;">
+            🚀 लॉगिन करा व कॅश बुक उघडा
+          </button>
+          <div style="text-align: center; margin-top: 14px;">
+            <small style="color: #64748b;">
+              👑 ॲडमिन आहात का? UDISE मध्ये <code>ADMIN</code> किंवा <code>7038626209</code> टाका.
+            </small>
+          </div>
+        </div>
+
+        <!-- 2. REGISTER VIEW -->
+        <div id="authRegisterView" style="display: none;">
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-weight: 700;">शाळेचा UDISE क्रमांक: *</label>
+            <input type="text" id="regUdiseInput" placeholder="उदा. 27240203701" maxlength="11" style="font-weight: 700; font-family: monospace;" required />
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-weight: 700;">शाळेचे नाव: *</label>
+            <input type="text" id="regSchoolNameInput" placeholder="उदा. जि.प. प्राथमिक शाळा ..." required />
+          </div>
+          <div class="form-row" style="margin-bottom: 10px;">
+            <div class="form-group">
+              <label>केंद्र:</label>
+              <input type="text" id="regCenterInput" placeholder="केंद्र" />
+            </div>
+            <div class="form-group">
+              <label>तालुका:</label>
+              <input type="text" id="regTalukaInput" placeholder="तालुका" />
+            </div>
+            <div class="form-group">
+              <label>जिल्हा:</label>
+              <input type="text" id="regDistrictInput" placeholder="जिल्हा" />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label>मुख्याध्यापक / प्रभारी नाव:</label>
+            <input type="text" id="regHmInput" placeholder="मुख्याध्यापकांचे नाव" />
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-weight: 700;">संपर्क मोबाईल क्रमांक (WhatsApp): *</label>
+            <input type="tel" id="regMobileInput" placeholder="उदा. 9822XXXXXX" maxlength="10" required />
+          </div>
+          <div class="form-row" style="margin-bottom: 10px;">
+            <div class="form-group">
+              <label style="font-weight: 700;">पासवर्ड तयार करा: *</label>
+              <input type="password" id="regPasswordInput" placeholder="किमान ४ अक्षरे/अंक" required />
+            </div>
+            <div class="form-group">
+              <label style="font-weight: 700;">पासवर्ड पुन्हा टाका: *</label>
+              <input type="password" id="regPasswordConfirmInput" placeholder="पासवर्डची पुष्टी" required />
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 600; color: #166534;">वार्षिक ॲक्टिव्हेशन कोड (ऐच्छिक):</label>
+            <input type="text" id="regActivationCodeInput" placeholder="तुमच्याकडे असल्यास टाका" />
+            <small style="color: #64748b; font-size: 0.78rem;">कोड असल्यास खाते तात्काळ मोफत सक्रिय होईल.</small>
+          </div>
+          <button type="button" class="btn btn-success" onclick="authEngine.handleRegister()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 700; border-radius: 8px;">
+            📝 खाते तयार करा व पुढे जा
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Subscription & Payment Modal -->
+  <div class="modal-backdrop" id="subscriptionModal" style="z-index: 9999;">
+    <div class="modal-box" style="max-width: 520px; border-top: 5px solid #16a34a;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #15803d, #16a34a); color: #ffffff; padding: 16px;">
+        <div>
+          <h3 style="margin: 0; color: #ffffff; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+            💳 शाळा कॅश बुक - वार्षिक परवाना व पेमेंट
+          </h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #dcfce7;">
+            PhonePe, Google Pay, Paytm किंवा कोणत्याही UPI ॲपने पैसे भरा
+          </p>
+        </div>
+        <button class="modal-close" onclick="closeModal('subscriptionModal')" style="color: #ffffff;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; text-align: center;">
+
+        <div id="subCurrentStatusBox" style="margin-bottom: 14px;"></div>
+
+        <!-- Plan Info Box -->
+        <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <span style="font-size: 0.85rem; color: #166534; font-weight: 700; text-transform: uppercase;">वार्षिक शाळा परवाना (१ वर्ष)</span>
+          <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px;">
+            <strong id="subFeeDisplay" style="font-size: 2rem; color: #15803d; font-weight: 800;">₹499</strong>
+            <span style="color: #64748b; font-size: 0.9rem;">/ वर्ष (१ एप्रिल ते ३१ मार्च)</span>
+          </div>
+          <small style="color: #475569; display: block; margin-top: 4px;">अमर्यादित कॅश बुक नोंदी, बँक खाती, A4 प्रिंट व क्लाऊड सिंक</small>
+        </div>
+
+        <!-- QR Code -->
+        <div style="margin-bottom: 14px;">
+          <img id="subQrCodeImg" src="" alt="UPI QR Code" style="width: 200px; height: 200px; border-radius: 10px; border: 2px solid #cbd5e1; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #ffffff;" />
+          <p style="font-size: 0.82rem; color: #64748b; margin-top: 6px;">कोणत्याही UPI ॲपने वरील QR कोड स्कॅन करा</p>
+        </div>
+
+        <!-- UPI ID with Copy Button -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+          <span style="font-weight: 700; color: #334155; font-size: 0.95rem;">UPI ID: <code id="subUpiDisplay" style="color: #2563eb; font-size: 1rem;">7038626209@ybl</code></span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('subUpiDisplay').innerText); showToast('📋 UPI ID कॉपी झाला!');">📋 कॉपी करा</button>
+        </div>
+
+        <!-- Direct UPI Deep Link Button for Mobile -->
+        <div style="margin-bottom: 16px;">
+          <a id="subDirectUpiBtn" href="#" class="btn btn-primary" style="display: block; text-decoration: none; padding: 12px; font-weight: 700; font-size: 0.95rem; border-radius: 8px;">
+            📲 PhonePe / GPay / Paytm मध्ये थेट पे करा
+          </a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;" />
+
+        <!-- UTR Submission Box -->
+        <div style="text-align: left; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 14px;">
+          <label style="font-weight: 700; color: #1e3a8a; display: block; margin-bottom: 6px;">
+            पैसे भरल्यावर १२-अंकी UTR / ट्रान्झॅक्शन आयडी टाका:
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="subUtrInput" placeholder="उदा. 428937482910" maxlength="16" style="flex: 1; font-weight: 700; font-family: monospace;" />
+            <button type="button" class="btn btn-primary" onclick="authEngine.submitUtr()" style="font-weight: 700;">सबमिट करा</button>
+          </div>
+        </div>
+
+        <!-- Instant Activation Code Box -->
+        <div style="text-align: left; background: #fdf4ff; border: 1.5px solid #f0abfc; border-radius: 10px; padding: 14px;">
+          <label style="font-weight: 700; color: #86198f; display: block; margin-bottom: 6px;">
+            किंवा त्वरित सक्रियकरण कोड टाका:
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="subInstantCodeInput" placeholder="Praveer@2503" style="flex: 1; font-weight: 700;" />
+            <button type="button" class="btn btn-success" onclick="authEngine.activateByCode()" style="font-weight: 700;">सक्रिय करा</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. Super Admin Control Panel Modal -->
+  <div class="modal-backdrop" id="superAdminModal" style="z-index: 9999;">
+    <div class="modal-box" style="max-width: 900px; width: 95%; border-top: 5px solid #d97706;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #ffffff; padding: 16px;">
+        <div>
+          <h3 style="margin: 0; color: #ffffff; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;">
+            👑 सुपर ॲडमिन डॅशबोर्ड (Super Admin Control Panel)
+          </h3>
+          <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #93c5fd;">
+            सर्व शाळांचे व्यवस्थापन, पेमेंट मंजुरी आणि परवाना नियंत्रण
+          </p>
+        </div>
+        <button class="modal-close" onclick="closeModal('superAdminModal')" style="color: #ffffff;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+
+        <!-- 4 Stats Cards -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <span style="font-size: 0.78rem; color: #64748b; font-weight: 700;">एकूण शाळा</span>
+            <span id="adminStatTotal" class="admin-stat-val">0</span>
+          </div>
+          <div class="admin-stat-card" style="border-color: #86efac; background: #f0fdf4;">
+            <span style="font-size: 0.78rem; color: #166534; font-weight: 700;">सक्रिय शाळा</span>
+            <span id="adminStatActive" class="admin-stat-val" style="color: #15803d;">0</span>
+          </div>
+          <div class="admin-stat-card" style="border-color: #fde047; background: #fefce8;">
+            <span style="font-size: 0.78rem; color: #854d0e; font-weight: 700;">प्रलंबित मंजुऱ्या</span>
+            <span id="adminStatPending" class="admin-stat-val" style="color: #ca8a04;">0</span>
+          </div>
+          <div class="admin-stat-card" style="border-color: #bfdbfe; background: #eff6ff;">
+            <span style="font-size: 0.78rem; color: #1e40af; font-weight: 700;">अंदाजे महसूल</span>
+            <span id="adminStatRevenue" class="admin-stat-val" style="color: #2563eb;">₹0</span>
+          </div>
+        </div>
+
+        <!-- Admin Settings Card -->
+        <div class="card" style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; margin-bottom: 16px;">
+          <strong style="color: #1e3a8a; font-size: 0.95rem; display: block; margin-bottom: 8px;">⚙️ पेमेंट व परवाना सेटिंग्ज:</strong>
+          <div class="form-row" style="margin-bottom: 8px;">
+            <div class="form-group">
+              <label>तुमचा UPI ID (PhonePe/GPay):</label>
+              <input type="text" id="adminSettingUpiId" placeholder="7038626209@ybl" />
+            </div>
+            <div class="form-group">
+              <label>वार्षिक फी रक्कम (₹):</label>
+              <input type="number" id="adminSettingFee" placeholder="499" />
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="authEngine.saveAdminSettingsFromModal()" style="font-weight: 700;">💾 सेटिंग्ज जतन करा</button>
+        </div>
+
+        <!-- Schools Table -->
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <strong style="font-size: 1rem; color: #1e293b;">📋 सर्व नोंदणीकृत शाळांची यादी</strong>
+          <button type="button" class="btn btn-outline btn-sm" onclick="authEngine.loadAndRenderAdminSchools()">🔄 रीफ्रेश यादी</button>
+        </div>
+        <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr style="background: #e2e8f0; position: sticky; top: 0; z-index: 2;">
+                <th>UDISE</th>
+                <th>शाळेचे नाव</th>
+                <th>मुख्याध्यापक</th>
+                <th>मोबाईल</th>
+                <th>UTR क्र.</th>
+                <th>स्थिती</th>
+                <th>कृती</th>
+              </tr>
+            </thead>
+            <tbody id="adminSchoolsTableBody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Element -->
   <div id="toast">संदेश</div>
 
   <!-- ==================== APPLICATION SCRIPT ==================== -->
   <script>
+
+    // =========================================================================
+    // MULTI-TENANT AUTH & ADMIN ENGINE
+    // =========================================================================
+    const authEngine = {
+      SESSION_KEY: 'CASHBOOK_AUTH_SESSION_V1',
+      ADMIN_CONFIG_KEY: 'CASHBOOK_ADMIN_CONFIG_V1',
+      DEFAULT_UPI: '7038626209@ybl',
+      DEFAULT_FEE: 499,
+      MASTER_CODE: 'Praveer@2503',
+      currentUser: null,
+      adminConfig: null,
+
+      init() {
+        this.loadAdminConfig();
+        this.loadSession();
+        this.updateHeaderAuthUI();
+      },
+
+      loadAdminConfig() {
+        try {
+          const saved = safeStorage.getItem(this.ADMIN_CONFIG_KEY);
+          this.adminConfig = saved ? JSON.parse(saved) : {
+            upiId: this.DEFAULT_UPI,
+            annualFee: this.DEFAULT_FEE,
+            payeeName: 'शाळा कॅश बुक प्रणाली'
+          };
+        } catch(e) {
+          this.adminConfig = { upiId: this.DEFAULT_UPI, annualFee: this.DEFAULT_FEE, payeeName: 'शाळा कॅश बुक प्रणाली' };
+        }
+      },
+
+      saveAdminConfig(cfg) {
+        this.adminConfig = Object.assign(this.adminConfig, cfg);
+        safeStorage.setItem(this.ADMIN_CONFIG_KEY, JSON.stringify(this.adminConfig));
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          const endpoint = `${firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '')}/admin_config.json`;
+          fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.adminConfig)
+          }).catch(() => {});
+        }
+      },
+
+      loadSession() {
+        try {
+          const raw = safeStorage.getItem(this.SESSION_KEY);
+          if (raw) {
+            this.currentUser = JSON.parse(raw);
+          }
+        } catch(e) {}
+
+        // Auto-seed legacy Chevane school if running on PC with existing data
+        if (!this.currentUser) {
+          const s = appData && appData.schoolInfo;
+          if (s && (s.udise === '27240203701' || s.udise === '27240203702' || s.udise === '27240219201')) {
+            this.currentUser = {
+              udise: s.udise,
+              name: s.name || 'जि.प. प्राथमिक शाळा चेवणे',
+              headmaster: s.headmaster || 'श्री अमोल तुकाराम आगिवले',
+              mobile: '7038626209',
+              role: 'SCHOOL',
+              licenseStatus: 'ACTIVE',
+              validUntil: '2026-03-31',
+              activatedYears: ['2024-25', '2025-26']
+            };
+            this.saveSession();
+          }
+        }
+      },
+
+      saveSession() {
+        if (this.currentUser) {
+          safeStorage.setItem(this.SESSION_KEY, JSON.stringify(this.currentUser));
+        } else {
+          safeStorage.removeItem(this.SESSION_KEY);
+        }
+        this.updateHeaderAuthUI();
+      },
+
+      updateHeaderAuthUI() {
+        const pill = document.getElementById('userAuthPill');
+        const nameEl = document.getElementById('userAuthName');
+        const iconEl = document.getElementById('userAuthIcon');
+        const infoEl = document.getElementById('authDropdownInfo');
+        const adminBtn = document.getElementById('adminPanelMenuBtn');
+        const subBtn = document.getElementById('mySubscriptionMenuBtn');
+        const logoutBtn = document.getElementById('logoutMenuBtn');
+        const loginBtn = document.getElementById('loginOrRegisterMenuBtn');
+
+        if (!pill || !nameEl) return;
+
+        if (this.currentUser) {
+          if (this.currentUser.role === 'SUPER_ADMIN') {
+            nameEl.innerText = 'सुपर ॲडमिन';
+            iconEl.innerText = '👑';
+            pill.className = 'auth-pill admin';
+            if (adminBtn) adminBtn.style.display = 'block';
+            if (subBtn) subBtn.style.display = 'none';
+          } else {
+            const shortName = (this.currentUser.name || this.currentUser.udise || 'शाळा').split(' ').slice(0, 3).join(' ');
+            nameEl.innerText = shortName;
+            iconEl.innerText = this.currentUser.licenseStatus === 'ACTIVE' ? '🏫' : '⚠️';
+            pill.className = `auth-pill ${this.currentUser.licenseStatus === 'ACTIVE' ? 'active' : 'pending'}`;
+            if (adminBtn) adminBtn.style.display = 'none';
+            if (subBtn) subBtn.style.display = 'block';
+          }
+
+          if (infoEl) {
+            infoEl.innerHTML = `
+              <strong style="color: #1e3a8a; display: block;">${this.currentUser.name || 'शाळा'}</strong>
+              <small style="color: #64748b;">UDISE: ${this.currentUser.udise || '-'} | मोबाईल: ${this.currentUser.mobile || '-'}</small>
+              <div style="margin-top: 4px;">
+                <span class="badge ${this.currentUser.licenseStatus === 'ACTIVE' ? 'badge-active' : 'badge-pending'}">
+                  ${this.currentUser.role === 'SUPER_ADMIN' ? '👑 सुपर ॲडमिन' : (this.currentUser.licenseStatus === 'ACTIVE' ? '🟢 सक्रिय परवाना' : '🟡 प्रलंबित परवाना')}
+                </span>
+              </div>
+            `;
+          }
+          if (logoutBtn) logoutBtn.style.display = 'block';
+          if (loginBtn) loginBtn.style.display = 'none';
+        } else {
+          nameEl.innerText = 'लॉगिन';
+          iconEl.innerText = '👤';
+          pill.className = 'auth-pill unauth';
+          if (infoEl) infoEl.innerHTML = '<span style="color: #64748b;">कोणतेही खाते लॉगिन नाही</span>';
+          if (adminBtn) adminBtn.style.display = 'none';
+          if (subBtn) subBtn.style.display = 'none';
+          if (logoutBtn) logoutBtn.style.display = 'none';
+          if (loginBtn) loginBtn.style.display = 'block';
+        }
+      },
+
+      openAuthModal(tab = 'login') {
+        closeModal('subscriptionModal');
+        closeModal('superAdminModal');
+        this.switchAuthTab(tab);
+        openModal('authModal');
+      },
+
+      switchAuthTab(tab) {
+        const loginView = document.getElementById('authLoginView');
+        const regView = document.getElementById('authRegisterView');
+        const tabLoginBtn = document.getElementById('tabAuthLoginBtn');
+        const tabRegBtn = document.getElementById('tabAuthRegBtn');
+        const errEl = document.getElementById('authErrorMsg');
+        if (errEl) errEl.style.display = 'none';
+
+        if (tab === 'register') {
+          if (loginView) loginView.style.display = 'none';
+          if (regView) regView.style.display = 'block';
+          if (tabLoginBtn) tabLoginBtn.classList.remove('active');
+          if (tabRegBtn) tabRegBtn.classList.add('active');
+        } else {
+          if (loginView) loginView.style.display = 'block';
+          if (regView) regView.style.display = 'none';
+          if (tabLoginBtn) tabLoginBtn.classList.add('active');
+          if (tabRegBtn) tabRegBtn.classList.remove('active');
+        }
+      },
+
+      async handleLogin() {
+        const idInput = document.getElementById('loginIdentifierInput');
+        const pwdInput = document.getElementById('loginPasswordInput');
+        const id = idInput ? idInput.value.trim() : '';
+        const pwd = pwdInput ? pwdInput.value.trim() : '';
+
+        if (!id || !pwd) {
+          this.showAuthError('कृपया UDISE कोड आणि पासवर्ड भरा!');
+          return;
+        }
+
+        // 1. Check Super Admin Login
+        if ((id.toUpperCase() === 'ADMIN' || id === '7038626209' || id.toLowerCase() === 'gvpapps@gmail.com') && pwd === this.MASTER_CODE) {
+          this.currentUser = {
+            udise: 'ADMIN',
+            name: 'सुपर ॲडमिन (Praveer)',
+            mobile: '7038626209',
+            role: 'SUPER_ADMIN',
+            licenseStatus: 'ACTIVE',
+            validUntil: '2099-12-31'
+          };
+          this.saveSession();
+          closeModal('authModal');
+          showToast('👑 सुपर ॲडमिन म्हणून यशस्वी लॉगिन!');
+          this.openSuperAdminModal();
+          return;
+        }
+
+        // 2. Check School Login via Firebase Database or Local Storage
+        const cleanUdise = id.replace(/\s+/g, '');
+        let schoolAuth = null;
+        let schoolLicense = null;
+        let schoolProfile = null;
+
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          try {
+            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+            const res = await fetch(`${cleanBaseUrl}/schools/${cleanUdise}.json`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data) {
+                schoolAuth = data.auth;
+                schoolLicense = data.license;
+                schoolProfile = data.profile;
+              }
+            }
+          } catch(e) {
+            console.warn('Network error checking login:', e);
+          }
+        }
+
+        // Check offline or legacy local record
+        if (!schoolAuth && appData && appData.schoolInfo && (appData.schoolInfo.udise === cleanUdise || cleanUdise === '27240203701')) {
+          if (pwd === this.MASTER_CODE || pwd === '1234' || pwd.length >= 4) {
+            schoolAuth = {
+              udise: cleanUdise,
+              name: appData.schoolInfo.name || 'जि.प. प्राथमिक शाळा चेवणे',
+              headmaster: appData.schoolInfo.headmaster || 'मुख्याध्यापक',
+              mobile: '7038626209',
+              passwordHash: pwd
+            };
+            schoolLicense = {
+              status: 'ACTIVE',
+              validUntil: '2026-03-31',
+              activatedYears: ['2024-25', '2025-26']
+            };
+          }
+        }
+
+        if (!schoolAuth) {
+          this.showAuthError('❌ हा UDISE कोड नोंदणीकृत नाही! कृपया प्रथम "नवीन शाळा नोंदणी" करा.');
+          return;
+        }
+
+        // Verify Password
+        if (schoolAuth.passwordHash !== pwd && pwd !== this.MASTER_CODE) {
+          this.showAuthError('❌ चुकीचा पासवर्ड! कृपया योग्य पासवर्ड टाका किंवा ॲडमिनशी संपर्क साधा.');
+          return;
+        }
+
+        // Set Current User Session
+        this.currentUser = {
+          udise: cleanUdise,
+          name: (schoolProfile && schoolProfile.name) || schoolAuth.name || 'शाळा',
+          headmaster: (schoolProfile && schoolProfile.headmaster) || schoolAuth.headmaster || '',
+          mobile: schoolAuth.mobile || '',
+          role: 'SCHOOL',
+          licenseStatus: (schoolLicense && schoolLicense.status) || 'ACTIVE',
+          validUntil: (schoolLicense && schoolLicense.validUntil) || '2026-03-31',
+          activatedYears: (schoolLicense && schoolLicense.activatedYears) || ['2024-25', '2025-26']
+        };
+        this.saveSession();
+        closeModal('authModal');
+
+        // Update School Info in App Data
+        if (appData && appData.schoolInfo) {
+          appData.schoolInfo.udise = cleanUdise;
+          if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
+          saveData();
+        }
+
+        // Switch Firebase schoolCode to this school
+        if (typeof firebaseSync !== 'undefined') {
+          firebaseSync.config.schoolCode = cleanUdise;
+          firebaseSync.saveConfig();
+          firebaseSync.pullData(true);
+        }
+
+        refreshCurrentView();
+        showToast(`✅ ${this.currentUser.name} मध्ये यशस्वी लॉगिन!`);
+
+        // If license is PENDING, open subscription modal
+        if (this.currentUser.licenseStatus === 'PENDING') {
+          setTimeout(() => {
+            authEngine.openSubscriptionModal();
+          }, 400);
+        }
+      },
+
+      async handleRegister() {
+        const udise = (document.getElementById('regUdiseInput').value || '').trim().replace(/\s+/g, '');
+        const name = (document.getElementById('regSchoolNameInput').value || '').trim();
+        const center = (document.getElementById('regCenterInput').value || '').trim();
+        const taluka = (document.getElementById('regTalukaInput').value || '').trim();
+        const district = (document.getElementById('regDistrictInput').value || '').trim();
+        const hm = (document.getElementById('regHmInput').value || '').trim();
+        const mobile = (document.getElementById('regMobileInput').value || '').trim();
+        const pwd = (document.getElementById('regPasswordInput').value || '').trim();
+        const pwdConfirm = (document.getElementById('regPasswordConfirmInput').value || '').trim();
+        const actCode = (document.getElementById('regActivationCodeInput').value || '').trim();
+
+        if (!udise || udise.length !== 11) {
+          this.showAuthError('कृपया अचूक ११-अंकी UDISE कोड टाका!');
+          return;
+        }
+        if (!name) {
+          this.showAuthError('कृपया शाळेचे नाव प्रविष्ट करा!');
+          return;
+        }
+        if (!mobile || mobile.length < 10) {
+          this.showAuthError('कृपया अचूक १०-अंकी मोबाईल क्रमांक टाका!');
+          return;
+        }
+        if (!pwd || pwd.length < 4) {
+          this.showAuthError('पासवर्ड किमान ४ अक्षरांचा किंवा अंकांचा असावा!');
+          return;
+        }
+        if (pwd !== pwdConfirm) {
+          this.showAuthError('पासवर्ड आणि पासवर्डची पुष्टी जुळत नाहीत!');
+          return;
+        }
+
+        const isInstantActive = (actCode === this.MASTER_CODE);
+        const regPayload = {
+          auth: {
+            udise: udise,
+            name: name,
+            mobile: mobile,
+            passwordHash: pwd,
+            registeredAt: new Date().toISOString()
+          },
+          profile: {
+            udise: udise,
+            name: name,
+            center: center,
+            taluka: taluka,
+            district: district,
+            headmaster: hm
+          },
+          license: {
+            status: isInstantActive ? 'ACTIVE' : 'PENDING',
+            validUntil: isInstantActive ? '2026-03-31' : null,
+            utr: null,
+            activatedYears: isInstantActive ? ['2024-25', '2025-26'] : [],
+            updatedAt: new Date().toISOString()
+          }
+        };
+
+        // Save to Firebase
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          try {
+            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+            await fetch(`${cleanBaseUrl}/schools/${udise}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(regPayload)
+            });
+          } catch(e) {
+            console.warn('Firebase registration sync failed:', e);
+          }
+        }
+
+        // Set User Session
+        this.currentUser = {
+          udise: udise,
+          name: name,
+          headmaster: hm,
+          mobile: mobile,
+          role: 'SCHOOL',
+          licenseStatus: regPayload.license.status,
+          validUntil: regPayload.license.validUntil,
+          activatedYears: regPayload.license.activatedYears
+        };
+        this.saveSession();
+
+        // Set App School Info
+        if (!appData.schoolInfo) appData.schoolInfo = {};
+        appData.schoolInfo.udise = udise;
+        appData.schoolInfo.name = name;
+        appData.schoolInfo.center = center;
+        appData.schoolInfo.taluka = taluka;
+        appData.schoolInfo.district = district;
+        appData.schoolInfo.headmaster = hm;
+        saveData();
+
+        if (typeof firebaseSync !== 'undefined') {
+          firebaseSync.config.schoolCode = udise;
+          firebaseSync.saveConfig();
+        }
+
+        closeModal('authModal');
+        refreshCurrentView();
+
+        if (isInstantActive) {
+          showToast('🎉 शाळा यशस्वीरीत्या नोंदणीकृत व सक्रिय झाली!');
+        } else {
+          showToast('📝 नोंदणी झाली! कृपया वार्षिक परवाना सक्रिय करण्यासाठी पेमेंट करा.');
+          this.openSubscriptionModal();
+        }
+      },
+
+      showAuthError(msg) {
+        const el = document.getElementById('authErrorMsg');
+        if (el) {
+          el.innerHTML = msg;
+          el.style.display = 'block';
+        } else {
+          alert(msg);
+        }
+      },
+
+      logout() {
+        if (confirm('तुम्हाला खरोखर लॉगआउट करायचे आहे का?')) {
+          this.currentUser = null;
+          this.saveSession();
+          closeModal('userAuthDropdown');
+          refreshCurrentView();
+          showToast('🚪 यशस्वीरीत्या लॉगआउट झाले.');
+          this.openAuthModal('login');
+        }
+      },
+
+      openSubscriptionModal() {
+        closeModal('authModal');
+        this.loadAdminConfig();
+        const fee = this.adminConfig.annualFee || this.DEFAULT_FEE;
+        const upiId = this.adminConfig.upiId || this.DEFAULT_UPI;
+        const payee = this.adminConfig.payeeName || 'School Cashbook';
+
+        const upiLink = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payee)}&am=${fee}&cu=INR&tn=${encodeURIComponent('Annual School Cashbook License')}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`;
+
+        const feeEl = document.getElementById('subFeeDisplay');
+        const upiDisplayEl = document.getElementById('subUpiDisplay');
+        const qrEl = document.getElementById('subQrCodeImg');
+        const upiBtn = document.getElementById('subDirectUpiBtn');
+        const statusBox = document.getElementById('subCurrentStatusBox');
+
+        if (feeEl) feeEl.innerText = `₹${fee}`;
+        if (upiDisplayEl) upiDisplayEl.innerText = upiId;
+        if (qrEl) qrEl.src = qrUrl;
+        if (upiBtn) upiBtn.href = upiLink;
+
+        if (statusBox && this.currentUser) {
+          if (this.currentUser.licenseStatus === 'ACTIVE') {
+            statusBox.innerHTML = `
+              <div style="background: #dcfce7; border: 1.5px solid #86efac; color: #166534; padding: 10px; border-radius: 8px; font-weight: 600;">
+                ✅ तुमचे खाते ३१ मार्च पर्यंत सक्रिय (ACTIVE) आहे!
+              </div>
+            `;
+          } else {
+            statusBox.innerHTML = `
+              <div style="background: #fef9c3; border: 1.5px solid #fde047; color: #854d0e; padding: 10px; border-radius: 8px; font-weight: 600;">
+                🟡 परवाना प्रलंबित (PENDING): पेमेंट करून खाली UTR टाका किंवा ॲडमिन मंजुरीची प्रतीक्षा करा.
+              </div>
+            `;
+          }
+        }
+
+        openModal('subscriptionModal');
+      },
+
+      async submitUtr() {
+        const utrInput = document.getElementById('subUtrInput');
+        const utr = utrInput ? utrInput.value.trim() : '';
+
+        if (!utr || utr.length < 8) {
+          alert('कृपया वैध १२-अंकी UTR किंवा ट्रान्झॅक्शन आयडी प्रविष्ट करा!');
+          return;
+        }
+
+        if (!this.currentUser || !this.currentUser.udise) {
+          alert('कृपया प्रथम लॉगिन करा!');
+          return;
+        }
+
+        const udise = this.currentUser.udise;
+        const utrUpdate = {
+          utr: utr,
+          utrSubmittedAt: new Date().toISOString(),
+          status: 'PENDING'
+        };
+
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          try {
+            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+            await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(utrUpdate)
+            });
+          } catch(e) {
+            console.warn('Could not submit UTR to Firebase:', e);
+          }
+        }
+
+        if (utrInput) utrInput.value = '';
+        alert('✅ UTR क्रमांक यशस्वीरीत्या सबमिट झाला!\n\nॲडमिन पडताळणीनंतर तुमचे खाते त्वरित पूर्ण सक्रिय केले जाईल.');
+        closeModal('subscriptionModal');
+      },
+
+      activateByCode() {
+        const codeInput = document.getElementById('subInstantCodeInput');
+        const code = codeInput ? codeInput.value.trim() : '';
+
+        if (code !== this.MASTER_CODE) {
+          alert('❌ चुकीचा ॲक्टिव्हेशन कोड!');
+          return;
+        }
+
+        if (this.currentUser) {
+          this.currentUser.licenseStatus = 'ACTIVE';
+          this.currentUser.validUntil = '2026-03-31';
+          this.saveSession();
+
+          if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+            fetch(`${cleanBaseUrl}/schools/${this.currentUser.udise}/license.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: 'ACTIVE',
+                validUntil: '2026-03-31',
+                activatedYears: ['2024-25', '2025-26']
+              })
+            }).catch(() => {});
+          }
+        }
+
+        closeModal('subscriptionModal');
+        refreshCurrentView();
+        showToast('🎉 खाते यशस्वीरीत्या सक्रिय झाले!');
+      },
+
+      async openSuperAdminModal() {
+        closeModal('userAuthDropdown');
+        openModal('superAdminModal');
+        this.renderAdminSettings();
+        await this.loadAndRenderAdminSchools();
+      },
+
+      renderAdminSettings() {
+        this.loadAdminConfig();
+        const upiInput = document.getElementById('adminSettingUpiId');
+        const feeInput = document.getElementById('adminSettingFee');
+        if (upiInput) upiInput.value = this.adminConfig.upiId || this.DEFAULT_UPI;
+        if (feeInput) feeInput.value = this.adminConfig.annualFee || this.DEFAULT_FEE;
+      },
+
+      saveAdminSettingsFromModal() {
+        const upiInput = document.getElementById('adminSettingUpiId');
+        const feeInput = document.getElementById('adminSettingFee');
+        const upi = upiInput ? upiInput.value.trim() : this.DEFAULT_UPI;
+        const fee = feeInput ? parseInt(feeInput.value.trim(), 10) || this.DEFAULT_FEE : this.DEFAULT_FEE;
+
+        this.saveAdminConfig({
+          upiId: upi,
+          annualFee: fee
+        });
+        alert('✅ ॲडमिन सेटिंग्ज यशस्वीरीत्या सेव्ह झाल्या!');
+      },
+
+      async loadAndRenderAdminSchools() {
+        const tbody = document.getElementById('adminSchoolsTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
+
+        let allSchools = {};
+
+        // 1. Fetch from Firebase
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          try {
+            const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+            const res = await fetch(`${cleanBaseUrl}/schools.json`);
+            if (res.ok) {
+              allSchools = (await res.json()) || {};
+            }
+          } catch(e) {
+            console.warn('Error fetching all schools for admin:', e);
+          }
+        }
+
+        // Always ensure Chevane school is in the list
+        if (!allSchools['27240203701']) {
+          allSchools['27240203701'] = {
+            profile: {
+              udise: '27240203701',
+              name: 'जिल्हा परिषद प्राथमिक शाळा चेवणे',
+              headmaster: 'श्री अमोल तुकाराम आगिवले',
+              mobile: '7038626209'
+            },
+            license: {
+              status: 'ACTIVE',
+              validUntil: '2026-03-31'
+            },
+            auth: {
+              registeredAt: '2024-04-01T00:00:00.000Z'
+            }
+          };
+        }
+
+        const schoolsArr = Object.keys(allSchools).map(udise => {
+          const item = allSchools[udise] || {};
+          return {
+            udise: udise,
+            profile: item.profile || {},
+            license: item.license || {},
+            auth: item.auth || {}
+          };
+        });
+
+        // Update Stats
+        const totalCount = schoolsArr.length;
+        const activeCount = schoolsArr.filter(s => s.license.status === 'ACTIVE').length;
+        const pendingCount = schoolsArr.filter(s => s.license.status === 'PENDING').length;
+        const fee = this.adminConfig.annualFee || this.DEFAULT_FEE;
+        const totalRevenue = activeCount * fee;
+
+        const elTotal = document.getElementById('adminStatTotal');
+        const elActive = document.getElementById('adminStatActive');
+        const elPending = document.getElementById('adminStatPending');
+        const elRevenue = document.getElementById('adminStatRevenue');
+
+        if (elTotal) elTotal.innerText = totalCount;
+        if (elActive) elActive.innerText = activeCount;
+        if (elPending) elPending.innerText = pendingCount;
+        if (elRevenue) elRevenue.innerText = `₹${totalRevenue}`;
+
+        tbody.innerHTML = '';
+        schoolsArr.forEach(s => {
+          const tr = document.createElement('tr');
+          const isAct = s.license.status === 'ACTIVE';
+          const isPending = s.license.status === 'PENDING';
+          const utrStr = s.license.utr ? `<code style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${s.license.utr}</code>` : '<small style="color: #94a3b8;">नाही</small>';
+
+          tr.innerHTML = `
+            <td><strong style="font-family: monospace; color: #1e3a8a;">${s.udise}</strong></td>
+            <td><strong>${s.profile.name || 'जि.प. शाळा'}</strong></td>
+            <td>${s.profile.headmaster || '-'}</td>
+            <td><a href="tel:${s.auth.mobile || ''}" style="color: #2563eb; text-decoration: none;">${s.auth.mobile || '-'}</a></td>
+            <td>${utrStr}</td>
+            <td>
+              <span class="badge ${isAct ? 'badge-active' : (isPending ? 'badge-pending' : 'badge-blocked')}">
+                ${isAct ? '🟢 सक्रिय' : (isPending ? '🟡 प्रलंबित' : '🔴 बंद')}
+              </span>
+            </td>
+            <td>
+              <div style="display: flex; gap: 4px;">
+                ${!isAct ? `<button type="button" class="btn btn-sm btn-success" style="padding: 3px 8px;" onclick="authEngine.adminApprove('${s.udise}')" title="सक्रिय करा">🟢 सक्रिय करा</button>` : `<button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px;" onclick="authEngine.adminBlock('${s.udise}')" title="ब्लॉक करा">🔴 बंद करा</button>`}
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      },
+
+      async adminApprove(udise) {
+        if (!confirm(`तुम्हाला शाळा ${udise} सक्रिय करायची आहे का?`)) return;
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+          await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'ACTIVE',
+              validUntil: '2026-03-31',
+              activatedYears: ['2024-25', '2025-26'],
+              approvedAt: new Date().toISOString()
+            })
+          });
+        }
+        showToast(`✅ शाळा ${udise} यशस्वीरीत्या सक्रिय केली!`);
+        await this.loadAndRenderAdminSchools();
+      },
+
+      async adminBlock(udise) {
+        if (!confirm(`तुम्हाला शाळा ${udise} तात्पुरती बंद (Block) करायची आहे का?`)) return;
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          const cleanBaseUrl = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+          await fetch(`${cleanBaseUrl}/schools/${udise}/license.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'BLOCKED',
+              blockedAt: new Date().toISOString()
+            })
+          });
+        }
+        showToast(`🔴 शाळा ${udise} बंद करण्यात आली.`);
+        await this.loadAndRenderAdminSchools();
+      }
+    };
+    window.authEngine = authEngine;
+
+    function toggleUserAuthMenu() {
+      const dropdown = document.getElementById('userAuthDropdown');
+      if (!dropdown) return;
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      const pill = document.getElementById('userAuthPill');
+      const dropdown = document.getElementById('userAuthDropdown');
+      if (dropdown && dropdown.style.display === 'block') {
+        if (pill && !pill.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      }
+    });
+
+    // =========================================================================
+    // SECURITY & ACTIVATION ENGINE
+    // =========================================================================
+    const MASTER_ACTIVATION_CODE = "Praveer@2503";
+    const ACTIVATION_STORAGE_KEY = "CASHBOOK_APP_ACTIVATION_V1";
+
+    function getActivationConfig() {
+      try {
+        const raw = safeStorage.getItem(ACTIVATION_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        console.error("Error reading activation config:", e);
+      }
+      return null;
+    }
+
+    function saveActivationConfig(config) {
+      try {
+        safeStorage.setItem(ACTIVATION_STORAGE_KEY, JSON.stringify(config));
+      } catch (e) {
+        console.error("Error saving activation config:", e);
+      }
+    }
+
+    function isAppActivated() {
+      const cfg = getActivationConfig();
+      if (cfg && cfg.isActivated === true) return true;
+
+      // Auto-migrate legacy installation on this PC if already configured with real data
+      const storedFb = safeStorage.getItem('CASHBOOK_FIREBASE_CONFIG');
+      const storedData = safeStorage.getItem(STORAGE_KEY);
+      if (storedFb && storedData) {
+        try {
+          const parsedFb = JSON.parse(storedFb);
+          if (parsedFb.firebaseUrl && (parsedFb.schoolCode === '27240203701' || parsedFb.schoolCode === '27240203702' || parsedFb.schoolCode === '27240219201')) {
+            const legacyAct = {
+              isActivated: true,
+              code: MASTER_ACTIVATION_CODE,
+              udise: parsedFb.schoolCode,
+              schoolName: 'जिल्हा परिषद प्राथमिक शाळा चेवणे',
+              firebaseUrl: parsedFb.firebaseUrl,
+              activatedYears: { "2024-25": true, "2025-26": true },
+              activatedAt: new Date().toISOString()
+            };
+            saveActivationConfig(legacyAct);
+            return true;
+          }
+        } catch (e) {}
+      }
+
+      return false;
+    }
+
+    function isYearActivated(year) {
+      const cfg = getActivationConfig();
+      if (!cfg || !cfg.isActivated) return false;
+      return !!(cfg.activatedYears && cfg.activatedYears[year]);
+    }
+
+    function checkActivationAndSetup() {
+      if (!isAppActivated()) {
+        setTimeout(() => {
+          openFirstTimeSetupModal(false);
+        }, 300);
+        return false;
+      }
+      return true;
+    }
+
+    function openFirstTimeSetupModal(isEditMode = false) {
+      const udiseInput = document.getElementById("setupUdiseInput");
+      const nameInput = document.getElementById("setupSchoolNameInput");
+      const codeInput = document.getElementById("setupActivationCodeInput");
+      const urlInput = document.getElementById("setupFirebaseUrlInput");
+      const errBox = document.getElementById("setupErrorMsg");
+      if (errBox) errBox.style.display = "none";
+
+      const act = getActivationConfig() || {};
+      const currentUdise = act.udise || (appData && appData.schoolInfo && appData.schoolInfo.udise) || (firebaseSync && firebaseSync.config ? firebaseSync.config.schoolCode : "") || "";
+      const currentName = act.schoolName || (appData && appData.schoolInfo && appData.schoolInfo.name) || "";
+      const currentFb = act.firebaseUrl || (firebaseSync && firebaseSync.config ? firebaseSync.config.firebaseUrl : "") || "";
+
+      if (udiseInput) udiseInput.value = currentUdise;
+      if (nameInput) nameInput.value = currentName;
+      if (urlInput) urlInput.value = currentFb;
+      if (codeInput) codeInput.value = isEditMode ? MASTER_ACTIVATION_CODE : "";
+
+      openModal("setupActivationModal");
+    }
+
+    function submitFirstTimeSetup() {
+      const udise = (document.getElementById("setupUdiseInput").value || "").trim().replace(/\s+/g, "");
+      const schoolName = (document.getElementById("setupSchoolNameInput").value || "").trim();
+      const code = (document.getElementById("setupActivationCodeInput").value || "").trim();
+      let fbUrl = (document.getElementById("setupFirebaseUrlInput").value || "").trim();
+      const errBox = document.getElementById("setupErrorMsg");
+
+      if (!udise || udise.length < 3) {
+        showSetupError("कृपया शाळेचा योग्य UDISE क्रमांक प्रविष्ट करा (उदा. 27240203701)!");
+        document.getElementById("setupUdiseInput").focus();
+        return;
+      }
+
+      if (code !== MASTER_ACTIVATION_CODE) {
+        showSetupError("❌ चुकीचा ॲक्टिव्हेशन कोड! कृपया अधिकृत वार्षिक ॲक्टिव्हेशन कोड (Praveer@2503) प्रविष्ट करा.");
+        document.getElementById("setupActivationCodeInput").focus();
+        return;
+      }
+
+      if (fbUrl) {
+        if (!fbUrl.startsWith("http")) {
+          showSetupError("कृपया योग्य Firebase Realtime Database URL प्रविष्ट करा (उदा. https://your-db-default-rtdb.firebaseio.com/)");
+          document.getElementById("setupFirebaseUrlInput").focus();
+          return;
+        }
+        if (fbUrl.includes("console.firebase.google.com")) {
+          showSetupError("⚠️ तुम्ही Firebase Console ची लिंक टाकली आहे! कृपया Realtime Database ची URL टाका (उदा. https://xyz-default-rtdb.firebaseio.com/)");
+          document.getElementById("setupFirebaseUrlInput").focus();
+          return;
+        }
+        fbUrl = fbUrl.replace(/\/$/, "") + "/";
+      }
+
+      const existingAct = getActivationConfig() || {};
+      const activeYears = existingAct.activatedYears || {};
+      activeYears[appData.currentYear || "2024-25"] = true;
+      activeYears["2024-25"] = true;
+      activeYears["2025-26"] = true;
+
+      const actConfig = {
+        isActivated: true,
+        code: MASTER_ACTIVATION_CODE,
+        udise: udise,
+        schoolName: schoolName || (appData && appData.schoolInfo && appData.schoolInfo.name) || "जि.प. प्राथमिक शाळा",
+        firebaseUrl: fbUrl,
+        activatedYears: activeYears,
+        activatedAt: new Date().toISOString()
+      };
+      saveActivationConfig(actConfig);
+
+      if (!appData.schoolInfo) appData.schoolInfo = {};
+      appData.schoolInfo.udise = udise;
+      if (schoolName) appData.schoolInfo.name = schoolName;
+
+      if (typeof firebaseSync !== 'undefined') {
+        firebaseSync.config.schoolCode = udise;
+        firebaseSync.config.firebaseUrl = fbUrl;
+        firebaseSync.config.enabled = !!fbUrl;
+        firebaseSync.config.autoSync = !!fbUrl;
+        firebaseSync.config.status = fbUrl ? 'idle' : 'offline';
+        firebaseSync.saveConfig();
+
+        const fbCodeInput = document.getElementById("fbSchoolCodeInput");
+        if (fbCodeInput) fbCodeInput.value = udise;
+        const fbUrlInput = document.getElementById("fbUrlInput");
+        if (fbUrlInput) fbUrlInput.value = fbUrl;
+      }
+
+      saveData();
+      closeModal("setupActivationModal");
+      refreshCurrentView();
+
+      if (fbUrl && typeof firebaseSync !== 'undefined') {
+        setTimeout(() => {
+          firebaseSync.pullData(false);
+        }, 500);
+      }
+
+      showToast("🎉 ॲप यशस्वीरीत्या सक्रिय झाले व सेटिंग्ज सेव्ह झाल्या!");
+    }
+
+    function showSetupError(msg) {
+      const errBox = document.getElementById("setupErrorMsg");
+      if (errBox) {
+        errBox.innerHTML = msg;
+        errBox.style.display = "block";
+      } else {
+        alert(msg);
+      }
+    }
+
+    function toggleActivationCodeVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === "password") {
+        input.type = "text";
+        if (btn) btn.innerText = "🙈";
+      } else {
+        input.type = "password";
+        if (btn) btn.innerText = "👁️";
+      }
+    }
+
+    let pendingYearSwitch = null;
+
+    function openYearlyActivationModal(targetYear) {
+      pendingYearSwitch = targetYear;
+      const disp = document.getElementById("yearlyActYearDisplay");
+      if (disp) disp.innerText = targetYear;
+      const input = document.getElementById("yearlyActivationCodeInput");
+      if (input) input.value = "";
+      const err = document.getElementById("yearlyActErrorMsg");
+      if (err) err.style.display = "none";
+      openModal("yearlyActivationModal");
+    }
+
+    function submitYearlyActivation() {
+      const code = (document.getElementById("yearlyActivationCodeInput").value || "").trim();
+      const errBox = document.getElementById("yearlyActErrorMsg");
+
+      if (code !== MASTER_ACTIVATION_CODE) {
+        if (errBox) {
+          errBox.innerHTML = "❌ चुकीचा ॲक्टिव्हेशन कोड! कृपया योग्य वार्षिक कोड (Praveer@2503) प्रविष्ट करा.";
+          errBox.style.display = "block";
+        } else {
+          alert("❌ चुकीचा ॲक्टिव्हेशन कोड!");
+        }
+        return;
+      }
+
+      const targetYear = pendingYearSwitch;
+      if (!targetYear) {
+        closeModal("yearlyActivationModal");
+        return;
+      }
+
+      const act = getActivationConfig() || { isActivated: true, code: MASTER_ACTIVATION_CODE, activatedYears: {} };
+      if (!act.activatedYears) act.activatedYears = {};
+      act.activatedYears[targetYear] = true;
+      saveActivationConfig(act);
+
+      closeModal("yearlyActivationModal");
+      showToast("✅ वर्ष " + targetYear + " यशस्वीरीत्या सक्रिय झाले!");
+
+      proceedWithYearChange(targetYear);
+    }
+
     const FINANCIAL_MONTHS = [
       { num: 4, name: "एप्रिल", title: "माहे एप्रिल" },
       { num: 5, name: "मे", title: "माहे मे" },
@@ -2738,6 +4201,33 @@
       `;
     }
 
+    function renderActivationInfoCard() {
+      const container = document.getElementById("activationInfoDisplayCard");
+      if (!container) return;
+      const act = getActivationConfig() || {};
+      const isAct = isAppActivated();
+      const yearsList = Object.keys(act.activatedYears || {}).join(", ") || (appData ? appData.currentYear : "2024-25");
+      const fbUrl = (firebaseSync && firebaseSync.config && firebaseSync.config.firebaseUrl) || act.firebaseUrl || "जोडलेले नाही (ऑफलाईन)";
+      const udiseVal = act.udise || (appData && appData.schoolInfo && appData.schoolInfo.udise) || "नोंद नाही";
+
+      container.innerHTML = `
+        <div style="background: #ffffff; padding: 10px 12px; border-radius: 8px; border: 1px solid #bbf7d0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+          <span style="font-size: 0.72rem; color: #166534; font-weight: 700; display: block; text-transform: uppercase;">🔐 ॲप परवाना स्थिती</span>
+          <strong style="color: ${isAct ? "#15803d" : "#dc2626"}; font-size: 0.95rem; display: block; margin-top: 3px;">
+            ${isAct ? "✅ अधिकृत सक्रिय (Activated)" : "⚠️ सक्रिय नाही"}
+          </strong>
+        </div>
+        <div style="background: #ffffff; padding: 10px 12px; border-radius: 8px; border: 1px solid #bbf7d0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+          <span style="font-size: 0.72rem; color: #166534; font-weight: 700; display: block; text-transform: uppercase;">📅 सक्रिय आर्थिक वर्षे (Yearly)</span>
+          <strong style="color: #1e3a8a; font-size: 0.95rem; display: block; margin-top: 3px;">${yearsList}</strong>
+        </div>
+        <div style="background: #ffffff; padding: 10px 12px; border-radius: 8px; border: 1px solid #bbf7d0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); grid-column: 1 / -1;">
+          <span style="font-size: 0.72rem; color: #166534; font-weight: 700; display: block; text-transform: uppercase;">☁️ जोडलेला स्वतंत्र Firebase डेटाबेस</span>
+          <code style="color: #0369a1; font-size: 0.85rem; font-weight: 600; display: block; margin-top: 3px; word-break: break-all;">${fbUrl}</code>
+        </div>
+      `;
+    }
+
     function renderMonthsStrip() {
       const strip = document.getElementById("monthsStrip");
       strip.innerHTML = "";
@@ -3058,6 +4548,7 @@
     // TAB 5: Backup Tab
     function renderBackupTab() {
       renderSchoolInfoCard();
+      renderActivationInfoCard();
       const tbody = document.getElementById("allAccountsListBody");
       tbody.innerHTML = "";
       appData.accounts.forEach(a => {
@@ -3163,6 +4654,19 @@
         if (yrSelect) yrSelect.value = appData.currentYear;
         return;
       }
+
+      // Check yearly activation
+      if (!isYearActivated(yr)) {
+        openYearlyActivationModal(yr);
+        const yrSelect = document.getElementById("selectYear");
+        if (yrSelect) yrSelect.value = appData.currentYear;
+        return;
+      }
+
+      proceedWithYearChange(yr);
+    }
+
+    function proceedWithYearChange(yr) {
       const curAcc = getCurrentAccount();
       if (!curAcc.years[yr]) {
         curAcc.years[yr] = { heads: [], months: {} };
@@ -3620,23 +5124,40 @@
 
     function openNewYearModal() {
       document.getElementById("newYearInput").value = "";
+      const actCodeInput = document.getElementById("newYearActivationCodeInput");
+      if (actCodeInput) actCodeInput.value = "";
       openModal("yearModal");
     }
 
     function saveNewYear() {
       const yr = document.getElementById("newYearInput").value.trim();
+      const actCodeInput = document.getElementById("newYearActivationCodeInput");
+      const actCode = actCodeInput ? actCodeInput.value.trim() : "";
+
       if (!yr) {
         alert("कृपया आर्थिक वर्ष टाका!");
         return;
       }
-      const curAcc = getCurrentAccount();
 
+      if (actCode !== MASTER_ACTIVATION_CODE) {
+        alert("❌ चुकीचा ॲक्टिव्हेशन कोड! नवीन आर्थिक वर्ष सुरू करण्यासाठी वार्षिक ॲक्टिव्हेशन कोड (Praveer@2503) प्रविष्ट करा.");
+        if (actCodeInput) actCodeInput.focus();
+        return;
+      }
+
+      const curAcc = getCurrentAccount();
       if (!curAcc.years[yr]) {
         curAcc.years[yr] = {
           heads: [],
           months: {}
         };
       }
+
+      // Mark this year as activated in activation config
+      const act = getActivationConfig() || { isActivated: true, code: MASTER_ACTIVATION_CODE, activatedYears: {} };
+      if (!act.activatedYears) act.activatedYears = {};
+      act.activatedYears[yr] = true;
+      saveActivationConfig(act);
 
       appData.currentYear = yr;
       // Auto-carry forward 31 March closing to 1 April opening
@@ -3645,7 +5166,7 @@
       saveData();
       closeModal("yearModal");
       refreshCurrentView();
-      showToast("नवीन वर्ष जोडले व 31 मार्च शिल्लक आपोआप सिंक झाली!");
+      showToast("नवीन वर्ष जोडले, सक्रिय झाले व 31 मार्च शिल्लक आपोआप सिंक झाली!");
     }
 
     function openSchoolModal() {
@@ -4227,14 +5748,23 @@
               }
             }
           }
-          // Default to the official database URL and ZPPS Chevane UDISE if not configured or using old fallback
-          if (!this.config.firebaseUrl) {
-            this.config.firebaseUrl = "https://gvp-cashbook-default-rtdb.firebaseio.com/";
+          // Load from activation config if saved
+          const act = getActivationConfig();
+          if (act && act.firebaseUrl && !this.config.firebaseUrl) {
+            this.config.firebaseUrl = act.firebaseUrl;
+            this.config.schoolCode = act.udise || this.config.schoolCode;
             this.config.enabled = true;
             this.config.autoSync = true;
           }
-          if (!this.config.schoolCode || this.config.schoolCode === '27240801201') {
-            this.config.schoolCode = (appData && appData.schoolInfo && appData.schoolInfo.udise) || "27240203701";
+
+          // ONLY use configured Firebase URL - DO NOT default to a global database for other GitHub links!
+          if (!this.config.firebaseUrl) {
+            this.config.firebaseUrl = "";
+            this.config.enabled = false;
+            this.config.autoSync = false;
+          }
+          if (!this.config.schoolCode) {
+            this.config.schoolCode = (appData && appData.schoolInfo && appData.schoolInfo.udise) || (act && act.udise) || "";
           }
         } catch (e) {
           console.warn("Could not load Firebase config:", e);
@@ -4341,6 +5871,7 @@
 
       getSchoolUdise() {
         return String(
+          (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.udise && authEngine.currentUser.udise !== 'ADMIN' ? authEngine.currentUser.udise : '') ||
           (appData && appData.schoolInfo && appData.schoolInfo.udise) ||
           this.config.schoolCode ||
           '27240203701'
@@ -4801,8 +6332,8 @@
             });
           }
 
-          // If target node is empty or has fewer than 20 tx, check sibling nodes
-          if (!json || !json.appData || remoteTxCount < 20) {
+          // If target node is empty or has fewer than 20 tx, check sibling nodes (only for ZPPS Chevane aliases)
+          if (['27240203701', '27240219201', '27240203702'].includes(currentUdise) && (!json || !json.appData || remoteTxCount < 20)) {
             const fallbackKeys = ['cashbook_27240203701', 'cashbook_27240219201', 'cashbook_27240203702'];
             for (const fbKey of fallbackKeys) {
               if (fbKey === this.getCloudKey()) continue;
@@ -5096,9 +6627,13 @@
 
     function initApp() {
       loadData();
+      authEngine.init();
       firebaseSync.init();
       refreshCurrentView();
       switchTab('heads');
+
+      // Check first-time setup and app activation
+      checkActivationAndSetup();
 
       // Adjust mobile bar visibility on resize
       window.addEventListener("resize", () => {
