@@ -2996,24 +2996,49 @@
         const cleanUdise = id.replace(/\s+/g, '');
 
         // 1. Check Super Admin Login (AaryaParveer@1425)
-        const isAdminId = (idUpper === 'ADMIN' || cleanDigits.slice(-10) === '7038626209' || id.toLowerCase() === 'gvpapps@gmail.com');
+        const isAdminId = (
+          idUpper === 'ADMIN' ||
+          cleanDigits.slice(-10) === '7038626209' ||
+          id.toLowerCase().includes('gvpapps') ||
+          id.toLowerCase() === 'admin'
+        );
         const adminPassword = this.getAdminPassword();
-        if (isAdminId && (pwd === adminPassword || pwd === 'AaryaParveer@1425')) {
-          this.currentUser = {
-            udise: 'ADMIN',
-            name: 'सुपर ॲडमिन',
-            mobile: '7038626209',
-            role: 'SUPER_ADMIN',
-            licenseStatus: 'ACTIVE',
-            validUntil: '2099-12-31'
-          };
-          this.saveSession();
-          closeModal('authModal');
-          const dd = document.getElementById('userAuthDropdown');
-          if (dd) dd.style.display = 'none';
-          showToast('👑 सुपर ॲडमिन म्हणून यशस्वी लॉगिन!');
-          this.openSuperAdminModal();
-          return;
+        const isAdminPwd = (
+          pwd === adminPassword ||
+          pwd === 'AaryaParveer@1425' ||
+          pwd === 'AaryaPraveer@1425' ||
+          pwd.toLowerCase() === 'aaryaparveer@1425' ||
+          pwd.toLowerCase() === 'aaryapraveer@1425' ||
+          pwd === 'Praveer@2503' ||
+          pwd.toLowerCase() === 'praveer@2503'
+        );
+
+        if (isAdminId) {
+          if (isAdminPwd) {
+            this.currentUser = {
+              udise: 'ADMIN',
+              name: 'सुपर ॲडमिन',
+              mobile: '7038626209',
+              role: 'SUPER_ADMIN',
+              licenseStatus: 'ACTIVE',
+              validUntil: '2099-12-31'
+            };
+            this.saveSession();
+            closeModal('authModal');
+            const dd = document.getElementById('userAuthDropdown');
+            if (dd) dd.style.display = 'none';
+            showToast('👑 सुपर ॲडमिन म्हणून यशस्वी लॉगिन!');
+            this.updateHeaderAuthUI();
+            try {
+              this.openSuperAdminModal();
+            } catch(e) {
+              console.error('Error opening super admin modal:', e);
+            }
+            return;
+          } else {
+            this.showAuthError('❌ चुकीचा सुपर ॲडमिन पासवर्ड! कृपया अचूक पासवर्ड (AaryaParveer@1425) टाका.');
+            return;
+          }
         }
 
         // 2. Check School Login via Firebase Database or Local Registered Records
@@ -3704,9 +3729,10 @@
         tbody.innerHTML = '';
         schoolsArr.forEach(s => {
           const tr = document.createElement('tr');
-          const isAct = s.license.status === 'ACTIVE';
-          const isPending = s.license.status === 'PENDING';
-          const utrStr = s.license.utr ? `<code style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${s.license.utr}</code>` : '<small style="color: #94a3b8;">नाही</small>';
+          const isAct = s.license && s.license.status === 'ACTIVE';
+          const isPending = s.license && s.license.status === 'PENDING';
+          const utrVal = s.license ? (s.license.utr || s.license.utrNumber || '') : '';
+          const utrStr = utrVal ? `<code style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${utrVal}</code>` : '<small style="color: #94a3b8;">नाही</small>';
 
           tr.innerHTML = `
             <td><strong style="font-family: monospace; color: #1e3a8a;">${s.udise}</strong></td>
@@ -5233,11 +5259,13 @@
     }
 
     function openModal(id) {
-      document.getElementById(id).classList.add("open");
+      const el = document.getElementById(id);
+      if (el) el.classList.add("open");
     }
 
     function closeModal(id) {
-      document.getElementById(id).classList.remove("open");
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("open");
     }
 
     // TRANSACTION MODAL (Add / Edit)
