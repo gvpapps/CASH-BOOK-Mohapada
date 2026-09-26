@@ -2373,6 +2373,12 @@
         <!-- 1. LOGIN VIEW -->
         <div id="authLoginView">
           <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-weight: 700; color: #1e40af; font-size: 0.85rem;">🏫 थेट नोंदणीकृत शाळा निवडा (किंवा खाली UDISE टाका):</label>
+            <select id="loginQuickSchoolSelect" onchange="authEngine.onQuickSchoolSelect(this.value)" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1.5px solid #93c5fd; background: #f0fdf4; font-weight: 600; font-size: 0.9rem; margin-bottom: 10px;">
+              <option value="">-- शाळेचे नाव निवडा --</option>
+              <option value="27240219201">🏫 जि. प. प्राथमिक शाळा मोहपाडा (27240219201)</option>
+              <option value="27240219101">🏫 रा. जि. प. प्राथमिक शाळा भोमळवाडी (27240219101)</option>
+            </select>
             <label style="font-weight: 700;">शाळेचा UDISE कोड किंवा मोबाईल क्र.: *</label>
             <input type="text" id="loginIdentifierInput" placeholder="उदा. 27240203701 किंवा 98XXXXXXXX" style="font-weight: 700; font-size: 1rem;" onkeydown="if(event.key==='Enter') authEngine.handleLogin()" required />
           </div>
@@ -3327,6 +3333,46 @@
           return;
         }
 
+        // DUPLICATE UDISE CHECK (Already exists check)
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
+          try {
+            const checkRes = await fetch(`${cleanBaseUrl}/schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (checkRes.ok) {
+              const existingSchool = await checkRes.json();
+              if (existingSchool && (existingSchool.auth || existingSchool.profile)) {
+                this.showAuthError(`
+                  <div style="font-weight: 700; margin-bottom: 6px; color: #dc2626; font-size: 0.95rem;">
+                    ❌ हा UDISE क्रमांक आधीच नोंदणीकृत आहे! (Already Registered)
+                  </div>
+                  <div style="font-size: 0.85rem; color: #1e3a8a; margin-bottom: 10px;">
+                    शाळा: <strong>${(existingSchool.profile && existingSchool.profile.name) || existingSchool.auth.name || udise}</strong>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="authEngine.switchAuthTab('login'); document.getElementById('loginIdentifierInput').value='${udise}';" style="font-size: 0.82rem; font-weight: 700;">
+                    👉 येथे क्लिक करून लॉगिन करा
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline" onclick="authEngine.switchAuthTab('reset'); document.getElementById('resetUdiseInput').value='${udise}';" style="font-size: 0.82rem; font-weight: 700; margin-left: 6px;">
+                    🔑 पासवर्ड विसरलात?
+                  </button>
+                `);
+                return;
+              }
+            }
+          } catch(e) {}
+        }
+        const localSchoolsCheck = this.getLocalSchoolsAuth();
+        if (localSchoolsCheck && localSchoolsCheck[udise]) {
+          this.showAuthError(`
+            <div style="font-weight: 700; margin-bottom: 6px; color: #dc2626;">
+              ❌ हा UDISE क्रमांक आधीच नोंदणीकृत आहे! (Already Registered)
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="authEngine.switchAuthTab('login'); document.getElementById('loginIdentifierInput').value='${udise}';" style="font-size: 0.82rem; font-weight: 700;">
+              👉 येथे क्लिक करून लॉगिन करा
+            </button>
+          `);
+          return;
+        }
+
         const isInstantActive = (actCode === this.getActivationCode());
         const regPayload = {
           auth: {
@@ -3357,7 +3403,6 @@
         this.saveLocalSchoolAuth(udise, regPayload.auth);
 
         // Save to Firebase
-        const cleanBaseUrl = this.getFirebaseUrl();
         if (cleanBaseUrl) {
           try {
             await fetch(`${cleanBaseUrl}/schools/${udise}.json`, {
@@ -3688,7 +3733,7 @@
         const cleanBaseUrl = this.getFirebaseUrl();
         if (cleanBaseUrl) {
           try {
-            const res = await fetch(`${cleanBaseUrl}/schools.json`);
+            const res = await fetch(`${cleanBaseUrl}/schools.json?t=${Date.now()}`, { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
               if (data && typeof data === 'object') {
@@ -3699,49 +3744,9 @@
             console.warn('Error fetching all schools for admin:', e);
           }
 
-          // 2. Discover all schools from /cashbook_schools.json to guarantee 100% visibility
-          try {
-            const cbRes = await fetch(`${cleanBaseUrl}/cashbook_schools.json`);
-            if (cbRes.ok) {
-              const cbData = await cbRes.json();
-              if (cbData && typeof cbData === 'object') {
-                Object.keys(cbData).forEach(k => {
-                  if (k.startsWith('cashbook_')) {
-                    const u = k.replace('cashbook_', '').trim();
-                    if (u && u.length >= 3 && !allSchools[u]) {
-                      const item = cbData[k] || {};
-                      const sInfo = (item.data && item.data.schoolInfo) || item.schoolInfo || {};
-                      allSchools[u] = {
-                        udise: u,
-                        profile: {
-                          udise: u,
-                          name: sInfo.name || `शाळा (${u})`,
-                          headmaster: sInfo.headmaster || '-',
-                          center: sInfo.center || '-',
-                          taluka: sInfo.taluka || '-',
-                          district: sInfo.district || '-'
-                        },
-                        auth: {
-                          udise: u,
-                          name: sInfo.name || `शाळा (${u})`,
-                          mobile: sInfo.mobile || '-',
-                          passwordHash: 'Ican@123'
-                        },
-                        license: {
-                          status: 'ACTIVE',
-                          validUntil: '2026-03-31',
-                          utr: 'सिस्टम-नोंदणी',
-                          activatedYears: ['2024-25', '2025-26']
-                        }
-                      };
-                    }
-                  }
-                });
-              }
-            }
-          } catch(e) {
-            console.warn('Error discovering cashbook_schools for admin:', e);
-          }
+          // Chevane is an independent separate file: never merge or include Chevane
+          delete allSchools['27240203701'];
+          delete allSchools['27240203702'];
         }
 
         // Cache local registrations into allSchools
@@ -3806,13 +3811,120 @@
             </td>
             <td>
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-sm btn-primary" style="padding: 3px 8px; font-weight: 700; background: #2563eb;" onclick="authEngine.adminOpenSchool('${s.udise}')" title="या शाळेचे कॅश बुक उघडा">📂 शाळा उघडा</button>
                 ${!isAct ? `<button type="button" class="btn btn-sm btn-success" style="padding: 3px 8px;" onclick="authEngine.adminApprove('${s.udise}')" title="सक्रिय करा">🟢 सक्रिय करा</button>` : `<button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px;" onclick="authEngine.adminBlock('${s.udise}')" title="ब्लॉक करा">🔴 बंद करा</button>`}
                 <button type="button" class="btn btn-sm btn-outline" style="padding: 3px 8px; border-color: #7c3aed; color: #6d28d9; font-weight: 700;" onclick="authEngine.adminChangeSchoolPassword('${s.udise}', '${(s.profile && s.profile.name) || s.auth.name || ''}')" title="या शाळेचा पासवर्ड बदला किंवा रीसेट करा">🔑 पासवर्ड बदला</button>
+                <button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px; font-weight: 700; background: #dc2626;" onclick="authEngine.adminDeleteSchool('${s.udise}', '${(s.profile && s.profile.name) || s.auth.name || ''}')" title="या शाळेचे खाते कायमचे हटवा">🗑️ शाळा हटवा</button>
               </div>
             </td>
           `;
           tbody.appendChild(tr);
         });
+      },
+
+      onQuickSchoolSelect(udise) {
+        if (!udise) return;
+        const idInput = document.getElementById('loginIdentifierInput');
+        const pwdInput = document.getElementById('loginPasswordInput');
+        if (idInput) idInput.value = udise;
+        if (pwdInput) {
+          pwdInput.value = '';
+          pwdInput.focus();
+        }
+      },
+
+            deleteLocalSchoolAuth(udise) {
+        if (!udise) return;
+        try {
+          const map = this.getLocalSchoolsAuth();
+          if (map[udise]) {
+            delete map[udise];
+            safeStorage.setItem(this.LOCAL_SCHOOLS_KEY, JSON.stringify(map));
+          }
+        } catch(e) {}
+      },
+
+      async adminDeleteSchool(udise, schoolName) {
+        if (!udise) return;
+        const confirmMsg = `⚠️ सावधान! तुम्हाला शाळा "${schoolName || udise}" (UDISE: ${udise}) कायमची हटवायची (Delete) आहे का?\n\nया शाळेचा सर्व डेटा व खाते डेटाबेसवरून कायमचे नष्ट होईल!`;
+        if (!confirm(confirmMsg)) return;
+
+        const pass = prompt('शाळा हटवण्यासाठी ॲडमिन पासवर्ड किंवा passkey (Ican@123) प्रविष्ट करा:');
+        if (pass === null) return;
+        const adminPwd = this.getAdminPassword();
+        const isValid = (
+          pass === 'Ican@123' ||
+          pass === adminPwd ||
+          pass === 'AaryaParveer@1425' ||
+          pass === 'AaryaPraveer@1425' ||
+          pass.toLowerCase() === 'aaryaparveer@1425' ||
+          pass.toLowerCase() === 'aaryapraveer@1425' ||
+          pass === 'Praveer@2503'
+        );
+        if (!isValid) {
+          alert('❌ चुकीचा पासवर्ड! शाळा हटवण्यात आली नाही.');
+          return;
+        }
+
+        const cleanBaseUrl = this.getFirebaseUrl();
+        if (cleanBaseUrl) {
+          try {
+            await fetch(`${cleanBaseUrl}/schools/${udise}.json`, { method: 'DELETE' });
+            await fetch(`${cleanBaseUrl}/cashbook_schools/cashbook_${udise}.json`, { method: 'DELETE' });
+          } catch(e) {
+            console.warn('Error deleting school from Firebase:', e);
+          }
+        }
+
+        // Delete from local storage
+        this.deleteLocalSchoolAuth(udise);
+
+        // If the deleted school is currently opened in appData, reset to blank
+        if (appData && appData.schoolInfo && appData.schoolInfo.udise === udise) {
+          appData = getDefaultData();
+          saveData();
+          refreshCurrentView();
+        }
+
+        showToast(`🗑️ शाळा "${schoolName || udise}" यशस्वीरीत्या हटवण्यात आली!`);
+        await this.loadAndRenderAdminSchools();
+      },
+
+      async adminOpenSchool(udise) {
+        if (!udise) return;
+        const cleanBaseUrl = this.getFirebaseUrl();
+        closeModal('superAdminModal');
+        showToast(`🔄 शाळा (${udise}) चे कॅश बुक उघडत आहे...`);
+
+        let sName = `शाळा (${udise})`;
+        if (cleanBaseUrl) {
+          try {
+            const sRes = await fetch(`${cleanBaseUrl}/schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (sData && sData.profile && sData.profile.name) {
+                sName = sData.profile.name;
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (appData && appData.schoolInfo) {
+          appData.schoolInfo.udise = udise;
+          appData.schoolInfo.name = sName;
+          saveData();
+        }
+
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
+          firebaseSync.config.schoolCode = udise;
+          firebaseSync.saveConfig();
+          try {
+            await firebaseSync.pullData(true, true);
+          } catch(e) {}
+        }
+
+        refreshCurrentView();
+        showToast(`✅ ${sName} (UDISE: ${udise}) उघडण्यात आली!`);
       },
 
       async adminApprove(udise) {
@@ -4179,91 +4291,50 @@
           {
             id: "acc_mdm_sadil",
             name: "शाळा सादील खर्च व शा.पो.आहार (एकत्रित कॅश बुक)",
-            bankName: "बँक ऑफ महाराष्ट्र",
+            bankName: "",
             accountNo: "",
             ifsc: "",
             years: {
               "2024-25": {
                 heads: [
-                  { id: "h1", name: "4% सादील (4% Sadil)", openingBalance: 793 },
-                  { id: "h2", name: "सुवर्ण महोत्सवी (Suvarna Mahotsav)", openingBalance: 4500 },
-                  { id: "h3", name: "शा.पो.आहार इंधन खर्च (MDM Fuel)", openingBalance: 2994 },
-                  { id: "h4", name: "शा.पो.आहार मुख्याध्यापक / स्वयंपाकी मानधन", openingBalance: 500 },
-                  { id: "h5", name: "शा.पो.आहार अंडी / केळी अनुदान", openingBalance: 289 }
+                  { id: "h1", name: "4% सादील (4% Sadil)", openingBalance: 0 },
+                  { id: "h2", name: "सुवर्ण महोत्सवी (Suvarna Mahotsav)", openingBalance: 0 },
+                  { id: "h3", name: "शा.पो.आहार इंधन खर्च (MDM Fuel)", openingBalance: 0 },
+                  { id: "h4", name: "शा.पो.आहार मुख्याध्यापक / स्वयंपाकी मानधन", openingBalance: 0 },
+                  { id: "h5", name: "शा.पो.आहार अंडी / केळी अनुदान", openingBalance: 0 }
                 ],
-                months: {
-                  "4": {
-                    jama: [
-                      { id: "j1", date: "2024-04-02", headId: "h5", receiptNo: "", chqNo: "", amount: 32, details: "शा.पो.आहार अंडी केळी" },
-                      { id: "j2", date: "2024-04-02", headId: "h5", receiptNo: "", chqNo: "", amount: 40, details: "शा.पो.आहार अंडी केळी" }
-                    ],
-                    kharch: []
-                  },
-                  "5": {
-                    jama: [
-                      { id: "j3", date: "2024-05-30", headId: "h5", receiptNo: "", chqNo: "", amount: 240, details: "शा.पो.आहार अंडी फळे" }
-                    ],
-                    kharch: []
-                  },
-                  "6": {
-                    jama: [
-                      { id: "j4", date: "2024-06-18", headId: "h3", receiptNo: "", chqNo: "", amount: 179, details: "शा.पो.आहार इंधन खर्च" },
-                      { id: "j5", date: "2024-06-18", headId: "h3", receiptNo: "", chqNo: "", amount: 306, details: "शा.पो.आहार इंधन खर्च" }
-                    ],
-                    kharch: []
-                  },
-                  "7": {
-                    jama: [
-                      { id: "j6", date: "2024-07-09", headId: "h3", receiptNo: "", chqNo: "", amount: 190, details: "शा.पो.आहार इंधन भाजीपाला" }
-                    ],
-                    kharch: []
-                  },
-                  "8": {
-                    jama: [],
-                    kharch: [
-                      { id: "k1", date: "2024-08-30", headId: "h3", billNo: "247008", vendor: "", item: "इंधन", qty: "", amount: 2170, details: "शा.पो.आहार इंधन (बिल 247008)", remarks: "" },
-                      { id: "k2", date: "2024-08-30", headId: "h5", billNo: "247009", vendor: "", item: "अंडी केळी", qty: "", amount: 601, details: "शा.पो.आहार अंडी केळी (बिल 247009)", remarks: "" },
-                      { id: "k3", date: "2024-08-30", headId: "h4", billNo: "", vendor: "", item: "मानधन", qty: "", amount: 500, details: "शा.पो.आहार मुख्या. मानधन", remarks: "" },
-                      { id: "k4", date: "2024-08-30", headId: "h1", billNo: "", vendor: "", item: "झेरॉक्स", qty: "", amount: 179, details: "झेरॉक्स खर्च (4% सादील)", remarks: "" }
-                    ]
-                  },
-                  "9": {
-                    jama: [
-                      { id: "j7", date: "2024-09-11", headId: "h3", receiptNo: "", chqNo: "", amount: 160, details: "शा.पो.आहार इंधन खर्च" }
-                    ],
-                    kharch: []
-                  },
-                  "10": {
-                    jama: [
-                      { id: "j8", date: "2024-10-30", headId: "h5", receiptNo: "", chqNo: "", amount: 120, details: "अंडी केळी अनुदान" }
-                    ],
-                    kharch: []
-                  },
-                  "11": { jama: [], kharch: [] },
-                  "12": { jama: [], kharch: [] },
-                  "1": {
-                    jama: [
-                      { id: "j9", date: "2025-01-02", headId: "h3", receiptNo: "", chqNo: "", amount: 412, details: "शा.पो.आहार इंधन खर्च" },
-                      { id: "j10", date: "2025-01-02", headId: "h3", receiptNo: "", chqNo: "", amount: 399, details: "शा.पो.आहार इंधन खर्च" }
-                    ],
-                    kharch: []
-                  },
-                  "2": { jama: [], kharch: [] },
-                  "3": { jama: [], kharch: [] }
-                }
+                months: {}
+              },
+              "2025-26": {
+                heads: [
+                  { id: "h1", name: "4% सादील (4% Sadil)", openingBalance: 0 },
+                  { id: "h2", name: "सुवर्ण महोत्सवी (Suvarna Mahotsav)", openingBalance: 0 },
+                  { id: "h3", name: "शा.पो.आहार इंधन खर्च (MDM Fuel)", openingBalance: 0 },
+                  { id: "h4", name: "शा.पो.आहार मुख्याध्यापक / स्वयंपाकी मानधन", openingBalance: 0 },
+                  { id: "h5", name: "शा.पो.आहार अंडी / केळी अनुदान", openingBalance: 0 }
+                ],
+                months: {}
               }
             }
           },
           {
             id: "acc_4percent_only",
             name: "4% सादील खाते (4% Sadil Bank A/c)",
-            bankName: "बँक ऑफ इंडिया",
+            bankName: "",
             accountNo: "",
             ifsc: "",
             years: {
               "2024-25": {
                 heads: [
-                  { id: "s1", name: "कार्यालयीन सादील", openingBalance: 793 },
+                  { id: "s1", name: "कार्यालयीन सादील", openingBalance: 0 },
+                  { id: "s2", name: "स्टेशनरी व झेरॉक्स", openingBalance: 0 },
+                  { id: "s3", name: "किरकोळ दुरुस्ती", openingBalance: 0 }
+                ],
+                months: {}
+              },
+              "2025-26": {
+                heads: [
+                  { id: "s1", name: "कार्यालयीन सादील", openingBalance: 0 },
                   { id: "s2", name: "स्टेशनरी व झेरॉक्स", openingBalance: 0 },
                   { id: "s3", name: "किरकोळ दुरुस्ती", openingBalance: 0 }
                 ],
@@ -4274,15 +4345,23 @@
           {
             id: "acc_ssa",
             name: "सर्व शिक्षा अभियान / समग्र शिक्षा (SSA A/c)",
-            bankName: "स्टेट बँक ऑफ इंडिया",
+            bankName: "",
             accountNo: "",
             ifsc: "",
             years: {
               "2024-25": {
                 heads: [
-                  { id: "ssa1", name: "शाळा संयुक्त अनुदान (Composite Grant)", openingBalance: 25000 },
+                  { id: "ssa1", name: "शाळा संयुक्त अनुदान (Composite Grant)", openingBalance: 0 },
                   { id: "ssa2", name: "मोफत गणवेश योजना (Uniform)", openingBalance: 0 },
-                  { id: "ssa3", name: "क्रीडा व शिक्षक साहित्य अनुदान", openingBalance: 5000 }
+                  { id: "ssa3", name: "क्रीडा व शिक्षक साहित्य अनुदान", openingBalance: 0 }
+                ],
+                months: {}
+              },
+              "2025-26": {
+                heads: [
+                  { id: "ssa1", name: "शाळा संयुक्त अनुदान (Composite Grant)", openingBalance: 0 },
+                  { id: "ssa2", name: "मोफत गणवेश योजना (Uniform)", openingBalance: 0 },
+                  { id: "ssa3", name: "क्रीडा व शिक्षक साहित्य अनुदान", openingBalance: 0 }
                 ],
                 months: {}
               }
@@ -4370,7 +4449,48 @@
       return clean;
     }
 
+        function purgeChevaneLegacyDemoData(d) {
+      if (!d || !d.accounts) return;
+      if (d.schoolInfo && (d.schoolInfo.udise === '27240203701' || d.schoolInfo.udise === '27240203702' || (d.schoolInfo.name && d.schoolInfo.name.includes('चेवणे')))) {
+        d.schoolInfo = { name: '', center: '', taluka: '', district: '', udise: '', headmaster: '' };
+      }
+      (d.accounts || []).forEach(acc => {
+        if (!acc || !acc.years) return;
+        Object.keys(acc.years).forEach(y => {
+          const yr = acc.years[y];
+          if (!yr) return;
+          if (yr.heads) {
+            yr.heads.forEach(h => {
+              if (h.openingBalance === 793 || h.openingBalance === 4500 || h.openingBalance === 2994 || h.openingBalance === 25000 || h.openingBalance === 5000 || h.openingBalance === 289 || h.openingBalance === 500) {
+                h.openingBalance = 0;
+              }
+            });
+          }
+          if (yr.months) {
+            Object.keys(yr.months).forEach(m => {
+              const mo = yr.months[m];
+              if (mo && mo.jama) {
+                mo.jama = mo.jama.filter(j => !['j1','j2','j3','j4','j5','j6','j7','j8','j9','j10'].includes(j.id));
+              }
+              if (mo && mo.kharch) {
+                mo.kharch = mo.kharch.filter(k => !['k1','k2','k3','k4'].includes(k.id) && k.billNo !== '247008' && k.billNo !== '247009');
+              }
+            });
+          }
+        });
+      });
+    }
+
     function loadData() {
+      try {
+        const stored = safeStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          purgeChevaneLegacyDemoData(parsed);
+          appData = parsed;
+        }
+      } catch(e) {}
+
       try {
         const stored = safeStorage.getItem(STORAGE_KEY);
         if (stored) {
