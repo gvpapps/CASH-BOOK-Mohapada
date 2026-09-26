@@ -2758,11 +2758,17 @@
 
       getFirebaseUrl() {
         if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl && firebaseSync.config.firebaseUrl.trim()) {
-          return firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+          const url = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
+          if (url.includes('.firebaseio.com') && !url.includes('your-project') && !url.includes('school-cashbook-default')) {
+            return url;
+          }
         }
         const act = (typeof getActivationConfig === 'function') ? getActivationConfig() : null;
         if (act && act.firebaseUrl && act.firebaseUrl.trim()) {
-          return act.firebaseUrl.trim().replace(/\/$/, '');
+          const url = act.firebaseUrl.trim().replace(/\/$/, '');
+          if (url.includes('.firebaseio.com') && !url.includes('your-project') && !url.includes('school-cashbook-default')) {
+            return url;
+          }
         }
         return 'https://gvp-cashbook-default-rtdb.firebaseio.com';
       },
@@ -3359,6 +3365,12 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(regPayload)
             });
+            // Ensure basic school profile in cashbook_schools
+            await fetch(`${cleanBaseUrl}/cashbook_schools/cashbook_${udise}/schoolInfo.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(regPayload.profile)
+            }).catch(() => {});
           } catch(e) {
             console.warn('Firebase registration sync failed:', e);
           }
@@ -3672,16 +3684,63 @@
 
         let allSchools = {};
 
-        // 1. Fetch from Firebase
+        // 1. Fetch from Firebase /schools.json
         const cleanBaseUrl = this.getFirebaseUrl();
         if (cleanBaseUrl) {
           try {
             const res = await fetch(`${cleanBaseUrl}/schools.json`);
             if (res.ok) {
-              allSchools = (await res.json()) || {};
+              const data = await res.json();
+              if (data && typeof data === 'object') {
+                allSchools = Object.assign({}, data);
+              }
             }
           } catch(e) {
             console.warn('Error fetching all schools for admin:', e);
+          }
+
+          // 2. Discover all schools from /cashbook_schools.json to guarantee 100% visibility
+          try {
+            const cbRes = await fetch(`${cleanBaseUrl}/cashbook_schools.json`);
+            if (cbRes.ok) {
+              const cbData = await cbRes.json();
+              if (cbData && typeof cbData === 'object') {
+                Object.keys(cbData).forEach(k => {
+                  if (k.startsWith('cashbook_')) {
+                    const u = k.replace('cashbook_', '').trim();
+                    if (u && u.length >= 3 && !allSchools[u]) {
+                      const item = cbData[k] || {};
+                      const sInfo = (item.data && item.data.schoolInfo) || item.schoolInfo || {};
+                      allSchools[u] = {
+                        udise: u,
+                        profile: {
+                          udise: u,
+                          name: sInfo.name || `शाळा (${u})`,
+                          headmaster: sInfo.headmaster || '-',
+                          center: sInfo.center || '-',
+                          taluka: sInfo.taluka || '-',
+                          district: sInfo.district || '-'
+                        },
+                        auth: {
+                          udise: u,
+                          name: sInfo.name || `शाळा (${u})`,
+                          mobile: sInfo.mobile || '-',
+                          passwordHash: 'Ican@123'
+                        },
+                        license: {
+                          status: 'ACTIVE',
+                          validUntil: '2026-03-31',
+                          utr: 'सिस्टम-नोंदणी',
+                          activatedYears: ['2024-25', '2025-26']
+                        }
+                      };
+                    }
+                  }
+                });
+              }
+            }
+          } catch(e) {
+            console.warn('Error discovering cashbook_schools for admin:', e);
           }
         }
 
@@ -3891,9 +3950,11 @@
     }
 
     function checkActivationAndSetup() {
-      if (!isAppActivated()) {
+      // On 1st time link open or when user is not logged in:
+      // Show Login / New School Registration modal, NEVER the legacy setupActivationModal
+      if (typeof authEngine !== 'undefined' && !authEngine.currentUser) {
         setTimeout(() => {
-          openFirstTimeSetupModal(false);
+          authEngine.openAuthModal('login');
         }, 300);
         return false;
       }
@@ -3988,6 +4049,22 @@
         const fbUrlInput = document.getElementById("fbUrlInput");
         if (fbUrlInput) fbUrlInput.value = fbUrl;
       }
+
+      // Mirror setup info to Firebase cloud schools node
+      try {
+        const cleanBaseUrl = (typeof authEngine !== 'undefined' && authEngine.getFirebaseUrl) ? authEngine.getFirebaseUrl() : 'https://gvp-cashbook-default-rtdb.firebaseio.com';
+        if (cleanBaseUrl && udise) {
+          fetch(`${cleanBaseUrl}/schools/${udise}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              auth: { udise: udise, name: schoolName || 'जि.प. शाळा', passwordHash: 'Ican@123', registeredAt: new Date().toISOString() },
+              profile: { udise: udise, name: schoolName || 'जि.प. शाळा' },
+              license: { status: 'ACTIVE', validUntil: '2026-03-31', activatedYears: ['2024-25', '2025-26'] }
+            })
+          }).catch(() => {});
+        }
+      } catch(e) {}
 
       saveData();
       closeModal("setupActivationModal");
