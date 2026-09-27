@@ -1905,14 +1905,14 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label>शाळेचा UDISE क्रमांक: *</label>
-            <input type="text" id="fbSchoolCodeInput" placeholder="उदा. 27240801201" />
-            <small style="color: #64748b;">(हा क्रमांक सर्व डिव्हाइसवर समान असावा)</small>
+            <label style="font-weight: 700; color: #1e3a8a;">👑 ॲडमिन मोड (Admin Mode):</label>
+            <input type="text" id="fbSchoolCodeInput" value="ADMIN" readonly style="background: #f1f5f9; font-weight: 800; color: #1e3a8a; border: 1.5px solid #94a3b8;" />
+            <small style="color: #64748b;">(सुपर ॲडमिन मास्टर क्लाऊड डेटाबेस - शाळा लॉगिन येथे नाही)</small>
           </div>
           <div class="form-group">
             <label>Google Firebase Realtime Database URL: *</label>
             <input type="url" id="fbUrlInput" placeholder="https://your-project-default-rtdb.firebaseio.com/" />
-            <small style="color: #64748b;">उदा. <code>https://school-cashbook-default-rtdb.firebaseio.com/</code></small>
+            <small style="color: #64748b;">उदा. <code>https://cashbook-mohapada-default-rtdb.firebaseio.com/</code></small>
           </div>
         </div>
 
@@ -3584,43 +3584,50 @@
           this.showAuthError(errorHtml);
         };
 
-        // STRICT DUPLICATE UDISE CHECK (Local & Multi-Database)
-        const localSchoolsCheck = this.getLocalSchoolsAuth();
-        if (localSchoolsCheck && localSchoolsCheck[udise]) {
-          showDuplicateError(udise, localSchoolsCheck[udise].name);
-          return;
+        // STRICT DUPLICATE UDISE CHECK (Live Firebase Validated)
+        const endpointsToCheck = this.getAllEndpoints();
+
+        // Step 1: Check if school was explicitly deleted by Admin
+        let wasDeleted = false;
+        for (const ep of endpointsToCheck) {
+          try {
+            const delRes = await fetch(`${ep}/deleted_schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (delRes.ok) {
+              const delVal = await delRes.json();
+              if (delVal) { wasDeleted = true; break; }
+            }
+          } catch(e) {}
+        }
+        if (wasDeleted) {
+          // If deleted by admin, purge local cache immediately so fresh registration is allowed!
+          this.deleteLocalSchoolAuth(udise);
         }
 
-        const endpointsToCheck = [
-          this.getFirebaseUrl(),
-          'https://cashbook-mohapada-default-rtdb.firebaseio.com',
-          'https://gvp-cashbook-default-rtdb.firebaseio.com'
-        ];
-        const uniqueEndpoints = [...new Set(endpointsToCheck.map(u => (u || '').replace(/\/$/, '')))].filter(Boolean);
-
-        for (const ep of uniqueEndpoints) {
+        // Step 2: Check whether an active registration truly exists on Firebase
+        let activeCloudSchool = null;
+        for (const ep of endpointsToCheck) {
           try {
             const checkRes = await fetch(`${ep}/schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
             if (checkRes.ok) {
-              const existingSchool = await checkRes.json();
-              if (existingSchool && typeof existingSchool === 'object' && Object.keys(existingSchool).length > 0) {
-                const sName = (existingSchool.profile && existingSchool.profile.name) || (existingSchool.auth && existingSchool.auth.name) || udise;
-                showDuplicateError(udise, sName);
-                return;
-              }
-            }
-            // Also check cashbook_schools/cashbook_${udise}
-            const cbRes = await fetch(`${ep}/cashbook_schools/cashbook_${udise}/schoolInfo.json?t=${Date.now()}`, { cache: 'no-store' });
-            if (cbRes.ok) {
-              const cbInfo = await cbRes.json();
-              if (cbInfo && typeof cbInfo === 'object' && (cbInfo.name || cbInfo.udise)) {
-                showDuplicateError(udise, cbInfo.name || udise);
-                return;
+              const sData = await checkRes.json();
+              if (sData && typeof sData === 'object' && (sData.auth || sData.profile)) {
+                activeCloudSchool = sData;
+                break;
               }
             }
           } catch(e) {
             console.warn('Error checking duplicate on endpoint:', ep, e);
           }
+        }
+
+        // If cloud does NOT have this school, any local entry was deleted/stale; purge it!
+        if (!activeCloudSchool) {
+          this.deleteLocalSchoolAuth(udise);
+        } else {
+          // Active school found on cloud; show alert & admin contact details
+          const sName = (activeCloudSchool.profile && activeCloudSchool.profile.name) || (activeCloudSchool.auth && activeCloudSchool.auth.name) || udise;
+          showDuplicateError(udise, sName);
+          return;
         }
 
         const isInstantActive = (actCode === this.getActivationCode());
@@ -3656,20 +3663,41 @@
         const endpointsToSave = this.getAllEndpoints();
         for (const ep of endpointsToSave) {
           try {
+            // A. Save school auth, profile and license
             await fetch(`${ep}/schools/${udise}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(regPayload)
             });
-            await fetch(`${ep}/cashbook_schools/cashbook_${udise}/schoolInfo.json`, {
+            // B. Initialize cashbook container with default blank data & schoolInfo
+            const cbInitial = {
+              version: '2.0',
+              appType: 'school_cashbook',
+              schoolCode: udise,
+              schoolName: name,
+              schoolInfo: regPayload.profile,
+              license: regPayload.license,
+              auth: regPayload.auth,
+              updatedAt: new Date().toISOString(),
+              updatedBy: hm || 'मुख्याध्यापक',
+              appData: getDefaultData()
+            };
+            cbInitial.appData.schoolInfo = regPayload.profile;
+            await fetch(`${ep}/cashbook_schools/cashbook_${udise}.json`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(regPayload.profile)
+              body: JSON.stringify(cbInitial)
+            }).catch(() => {});
+            // C. Remove from deleted_schools if present
+            await fetch(`${ep}/deleted_schools/${udise}.json`, {
+              method: 'DELETE'
             }).catch(() => {});
           } catch(e) {
             console.warn('Firebase registration sync failed on:', ep, e);
           }
         }
+        // Auto-refresh admin list in background so it reflects immediately
+        this.loadAndRenderAdminSchools().catch(() => {});
 
         // Set User Session
         this.currentUser = {
@@ -4010,6 +4038,7 @@
 
         for (const endpoint of uniqueEndpoints) {
           try {
+            // A. Fetch from /schools.json
             const res = await fetch(`${endpoint}/schools.json?t=${Date.now()}`, { cache: 'no-store' });
             if (res.ok) {
               const data = await res.json();
@@ -4034,6 +4063,47 @@
                   }
                   if (!allSchools[u].profile.udise) {
                     allSchools[u].profile.udise = u;
+                  }
+                }
+              }
+            }
+
+            // B. ALSO Fetch from /cashbook_schools.json so ANY school registered/synced reflects in Admin panel!
+            const cbRes = await fetch(`${endpoint}/cashbook_schools.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (cbRes.ok) {
+              const cbData = await cbRes.json();
+              if (cbData && typeof cbData === 'object') {
+                for (const k of Object.keys(cbData)) {
+                  if (k === 'test_ping') continue;
+                  const u = k.replace(/^cashbook_/, '').trim().replace(/\s+/g, '');
+                  if (!u || u === '27240203701' || u === '27240203702') continue;
+                  const item = cbData[k];
+                  if (!item) continue;
+                  const sName = item.schoolName || (item.schoolInfo && item.schoolInfo.name) || (item.profile && item.profile.name) || 'जि.प. शाळा';
+                  const hm = (item.schoolInfo && item.schoolInfo.headmaster) || item.updatedBy || '';
+                  const mob = (item.auth && item.auth.mobile) || (item.schoolInfo && item.schoolInfo.mobile) || '';
+                  if (!allSchools[u]) {
+                    allSchools[u] = {
+                      profile: { udise: u, name: sName, headmaster: hm },
+                      license: item.license || { status: 'PENDING', activatedYears: ['2024-25', '2025-26'] },
+                      auth: item.auth || { udise: u, name: sName, mobile: mob }
+                    };
+                    // Auto-sync back to /schools/${u} so both endpoints and tables stay unified
+                    fetch(`${endpoint}/schools/${u}.json`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(allSchools[u])
+                    }).catch(() => {});
+                  } else {
+                    if (!allSchools[u].profile.name || allSchools[u].profile.name === 'जि.प. शाळा') {
+                      allSchools[u].profile.name = sName;
+                    }
+                    if (!allSchools[u].profile.headmaster) {
+                      allSchools[u].profile.headmaster = hm;
+                    }
+                    if (!allSchools[u].auth.mobile && mob) {
+                      allSchools[u].auth.mobile = mob;
+                    }
                   }
                 }
               }
@@ -4195,25 +4265,41 @@
 
         showToast(`🗑️ शाळा ${cleanUdise} सर्व डेटाबेसवरून कायमची हटवत आहे...`);
 
-        // 1. Delete from ALL database endpoints thoroughly
+        // 1. Delete thoroughly from ALL database endpoints
         const endpoints = this.getAllEndpoints();
         for (const ep of endpoints) {
           try {
             await fetch(`${ep}/schools/${cleanUdise}.json`, { method: 'DELETE' });
             await fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}.json`, { method: 'DELETE' });
+            await fetch(`${ep}/cashbook_schools/${cleanUdise}.json`, { method: 'DELETE' });
             await fetch(`${ep}/cashbook_backups/backup_${cleanUdise}.json`, { method: 'DELETE' });
+            await fetch(`${ep}/cashbook_backups/cashbook_${cleanUdise}_safety_backup.json`, { method: 'DELETE' });
+            // Add to deleted_schools marker so all devices know this school was wiped
+            await fetch(`${ep}/deleted_schools/${cleanUdise}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ udise: cleanUdise, deletedAt: new Date().toISOString() })
+            });
           } catch(e) {
             console.warn('Error deleting school from endpoint:', ep, e);
           }
         }
 
-        // 2. Delete from local storage cache
+        // 2. Delete from local storage cache on this device
         this.deleteLocalSchoolAuth(cleanUdise);
 
-        // 3. If the deleted school is currently opened in appData, reset to blank
+        // 3. If currently logged in as this deleted school, log out immediately
+        if (this.currentUser && String(this.currentUser.udise).trim().replace(/\s+/g, '') === cleanUdise) {
+          this.currentUser = null;
+          safeStorage.removeItem(this.SESSION_KEY);
+          safeStorage.setItem('CASHBOOK_EXPLICIT_LOGOUT', 'true');
+          this.updateHeaderAuthUI();
+        }
+
+        // 4. If the deleted school is currently opened in appData, reset to blank
         if (appData && appData.schoolInfo && String(appData.schoolInfo.udise).trim().replace(/\s+/g, '') === cleanUdise) {
           appData = getDefaultData();
-          saveData();
+          saveData(true);
           refreshCurrentView();
         }
 
@@ -7183,7 +7269,7 @@
                 <div>
                   <strong style="color: #475569; font-size: 1rem;">⚪ Google Firebase सिंक सध्या बंद आहे</strong>
                   <div style="color: #64748b; font-size: 0.82rem; margin-top: 2px;">
-                    मोबाईल व कॉम्प्युटरवर एकाच वेळी डेटा वापरण्यासाठी वरील UDISE व Firebase Database URL भरून <strong>"💾 सेव्ह करा व सुरू करा"</strong> दाबा.
+                    सुपर ॲडमिन मास्टर डेटाबेस जोडणीसाठी Firebase Database URL तपासा व <strong>"💾 सेव्ह करा व सुरू करा"</strong> दाबा.
                   </div>
                 </div>
                 <span style="background: #e2e8f0; color: #475569; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">ऑफलाईन</span>
@@ -7195,7 +7281,7 @@
                 <div>
                   <strong style="color: #d97706; font-size: 1rem;">🔄 Google Firebase डेटा ट्रान्सफर सुरू आहे...</strong>
                   <div style="color: #92400e; font-size: 0.82rem; margin-top: 2px;">
-                    शाळा UDISE: <strong>${this.getSchoolUdise()}</strong> | कृपया थोडी प्रतीक्षा करा...
+                    मोड: <strong>👑 ॲडमिन मास्टर कंट्रोल (ADMIN)</strong> | कृपया थोडी प्रतीक्षा करा...
                   </div>
                 </div>
                 <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">प्रक्रिया सुरू</span>
@@ -7207,7 +7293,7 @@
                 <div>
                   <strong style="color: #15803d; font-size: 1rem;">🟢 Google Firebase रिअल-टाईम सिंक सक्रिय आहे!</strong>
                   <div style="color: #166534; font-size: 0.82rem; margin-top: 4px;">
-                    शाळा UDISE: <strong>${this.getSchoolUdise()}</strong> &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
+                    मोड: <strong>👑 ॲडमिन मास्टर कंट्रोल (ADMIN)</strong> &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
                   </div>
                   <div style="color: #475569; font-size: 0.78rem; margin-top: 3px; word-break: break-all;">
                     🔗 जोडलेला डेटाबेस: <code>${this.config.firebaseUrl}</code>
@@ -7829,10 +7915,10 @@
       const codeInput = document.getElementById('fbSchoolCodeInput');
       const urlInput = document.getElementById('fbUrlInput');
       if (codeInput) {
-        codeInput.value = firebaseSync.getSchoolUdise();
+        codeInput.value = 'ADMIN';
       }
       if (urlInput) {
-        urlInput.value = firebaseSync.config.firebaseUrl || '';
+        urlInput.value = firebaseSync.config.firebaseUrl || 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
       }
       firebaseSync.updateUIStatus();
     }
@@ -7844,6 +7930,24 @@
     }
     function saveCloudSyncSettingsModal() {
       firebaseSync.saveSettings();
+    }
+
+    async function syncDeletedSchoolsFromCloud() {
+      try {
+        if (typeof authEngine === 'undefined') return;
+        const endpoints = authEngine.getAllEndpoints();
+        for (const ep of endpoints) {
+          const res = await fetch(`${ep}/deleted_schools.json?t=${Date.now()}`, { cache: 'no-store' });
+          if (res.ok) {
+            const delMap = await res.json();
+            if (delMap && typeof delMap === 'object') {
+              Object.keys(delMap).forEach(u => {
+                authEngine.deleteLocalSchoolAuth(u);
+              });
+            }
+          }
+        }
+      } catch(e) {}
     }
 
     function initApp() {
@@ -7858,6 +7962,9 @@
       firebaseSync.init();
       refreshCurrentView();
       switchTab('heads');
+
+      // Sync deleted schools so stale local caches are purged across all devices
+      syncDeletedSchoolsFromCloud().catch(() => {});
 
       // Check first-time setup and app activation
       checkActivationAndSetup();
