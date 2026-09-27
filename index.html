@@ -1280,6 +1280,11 @@
       border: 1px solid rgba(250, 204, 21, 0.6);
       color: #fef08a;
     }
+    .auth-pill.blocked {
+      background: rgba(239, 68, 68, 0.3);
+      border: 1.5px solid #ef4444;
+      color: #fee2e2;
+    }
     .auth-pill.admin {
       background: linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.4));
       border: 1px solid #fbbf24;
@@ -2881,6 +2886,43 @@
         this.loadAdminConfig();
         this.loadSession();
         this.updateHeaderAuthUI();
+        if (this.currentUser && this.currentUser.role === 'SCHOOL') {
+          this.syncCurrentUserLicenseFromCloud().catch(() => {});
+        }
+      },
+
+      async syncCurrentUserLicenseFromCloud() {
+        if (!this.currentUser || this.currentUser.role !== 'SCHOOL' || !this.currentUser.udise) return;
+        const cleanUdise = String(this.currentUser.udise).trim().replace(/\s+/g, '');
+        const endpoints = this.getAllEndpoints();
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(`${ep}/schools/${cleanUdise}/license.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              const lic = await res.json();
+              if (lic && lic.status) {
+                const oldStatus = this.currentUser.licenseStatus;
+                const newStatus = lic.status;
+                if (oldStatus !== newStatus) {
+                  console.log(`Live license status updated from cloud: ${oldStatus} -> ${newStatus}`);
+                  this.currentUser.licenseStatus = newStatus;
+                  if (lic.validUntil) this.currentUser.validUntil = lic.validUntil;
+                  if (lic.activatedYears) this.currentUser.activatedYears = lic.activatedYears;
+                  this.saveSession();
+                  this.updateHeaderAuthUI();
+
+                  if (newStatus === 'BLOCKED') {
+                    alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
+                  } else if (newStatus === 'ACTIVE') {
+                    showToast("🎉 मुख्य ॲडमिनने शाळेचा परवाना सक्रिय (Active) केला आहे!");
+                    closeModal('subscriptionModal');
+                  }
+                }
+                break;
+              }
+            }
+          } catch(e) {}
+        }
       },
 
       loadAdminConfig() {
@@ -2991,6 +3033,17 @@
         const readOnlyBanner = document.getElementById('readOnlyNoticeBanner');
         if (readOnlyBanner) {
           readOnlyBanner.style.display = canEdit ? 'none' : 'flex';
+          if (!canEdit && this.currentUser && this.currentUser.licenseStatus === 'BLOCKED') {
+            readOnlyBanner.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.25rem;">🚫</span>
+                <span><strong>परवाना बंद आहे (License Blocked):</strong> मुख्य ॲडमिनने या शाळेचा परवाना तात्पुरता बंद (Block) केला आहे. नवीन जमा/खर्च नोंदी बंद आहेत. परवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा. (मोबाईल: 7038626209)</span>
+              </div>
+            `;
+            readOnlyBanner.style.background = '#fef2f2';
+            readOnlyBanner.style.borderColor = '#f87171';
+            readOnlyBanner.style.color = '#991b1b';
+          }
         }
 
         // Control visibility of Firebase Tab, Admin Tab & activation card based on Super Admin login
@@ -3043,21 +3096,24 @@
             if (mobileNavLogin) mobileNavLogin.style.color = '#92400e';
           } else {
             const shortName = (this.currentUser.name || this.currentUser.udise || 'शाळा').split(' ').slice(0, 3).join(' ');
+            const isAct = this.currentUser.licenseStatus === 'ACTIVE';
+            const isBlocked = this.currentUser.licenseStatus === 'BLOCKED';
+
             if (nameEl) nameEl.innerText = shortName;
-            if (iconEl) iconEl.innerText = this.currentUser.licenseStatus === 'ACTIVE' ? '🏫' : '⚠️';
-            if (pill) pill.className = `auth-pill ${this.currentUser.licenseStatus === 'ACTIVE' ? 'active' : 'pending'}`;
+            if (iconEl) iconEl.innerText = isAct ? '🏫' : (isBlocked ? '🚫' : '⚠️');
+            if (pill) pill.className = `auth-pill ${isAct ? 'active' : (isBlocked ? 'blocked' : 'pending')}`;
             if (adminBtn) adminBtn.style.display = 'none';
             if (subBtn) subBtn.style.display = 'block';
 
             if (tabBtnLogin) {
-              tabBtnLogin.innerHTML = `🏫 ${shortName} (लॉगआउट)`;
-              tabBtnLogin.style.background = '#ecfdf5';
-              tabBtnLogin.style.color = '#065f46';
-              tabBtnLogin.style.border = '1.5px solid #10b981';
+              tabBtnLogin.innerHTML = `🏫 ${shortName} (${isAct ? 'सक्रिय' : (isBlocked ? 'बंद' : 'प्रलंबित')})`;
+              tabBtnLogin.style.background = isAct ? '#ecfdf5' : (isBlocked ? '#fef2f2' : '#fefce8');
+              tabBtnLogin.style.color = isAct ? '#065f46' : (isBlocked ? '#991b1b' : '#854d0e');
+              tabBtnLogin.style.border = isAct ? '1.5px solid #10b981' : (isBlocked ? '1.5px solid #ef4444' : '1.5px solid #facc15');
             }
-            if (mobileNavLoginLabel) mobileNavLoginLabel.innerText = 'शाळा';
-            if (mobileNavLoginIcon) mobileNavLoginIcon.innerText = '🏫';
-            if (mobileNavLogin) mobileNavLogin.style.color = '#059669';
+            if (mobileNavLoginLabel) mobileNavLoginLabel.innerText = isAct ? 'शाळा' : (isBlocked ? 'बंद' : 'प्रलंबित');
+            if (mobileNavLoginIcon) mobileNavLoginIcon.innerText = isAct ? '🏫' : (isBlocked ? '🚫' : '⚠️');
+            if (mobileNavLogin) mobileNavLogin.style.color = isAct ? '#059669' : (isBlocked ? '#dc2626' : '#d97706');
           }
 
           if (infoEl) {
@@ -6134,6 +6190,7 @@
     // TRANSACTION MODAL (Add / Edit)
     function openTransactionModal(type, editId = null) {
       if (typeof authEngine !== 'undefined' && !authEngine.canEditEntries()) {
+        authEngine.syncCurrentUserLicenseFromCloud().catch(() => {});
         authEngine.showPendingApprovalAlert("जमा व खर्च नोंदी करणे");
         return;
       }
@@ -7399,18 +7456,26 @@
           }
         });
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible' && this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
-            this.pullData(true);
+          if (document.visibilityState === 'visible') {
+            if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
+              this.pullData(true);
+            }
+            if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SCHOOL') {
+              authEngine.syncCurrentUserLicenseFromCloud().catch(() => {});
+            }
           }
         });
       },
 
       startAutoPolling() {
         if (this.pollTimer) clearInterval(this.pollTimer);
-        // Periodic background poll every 12 seconds
+        // Periodic background poll every 12 seconds (with live license verification)
         this.pollTimer = setInterval(() => {
           if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
             this.pullData(true);
+          }
+          if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SCHOOL') {
+            authEngine.syncCurrentUserLicenseFromCloud().catch(() => {});
           }
         }, 12000);
       },
@@ -7826,6 +7891,7 @@
             schoolInfo: appData.schoolInfo || {},
             updatedAt: new Date().toISOString(),
             updatedBy: (appData.schoolInfo && appData.schoolInfo.headmaster) || 'User',
+            license: (existingRemote && existingRemote.license) || ((typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.licenseStatus) ? { status: authEngine.currentUser.licenseStatus } : { status: 'PENDING' }),
             appData: appData
           };
 
@@ -7919,6 +7985,17 @@
                 });
               });
             });
+          }
+
+          // Live sync license from cloud payload into authEngine currentUser
+          if (json && json.license && json.license.status && typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SCHOOL') {
+            if (authEngine.currentUser.licenseStatus !== json.license.status) {
+              console.log(`Live license updated in pullData: ${authEngine.currentUser.licenseStatus} -> ${json.license.status}`);
+              authEngine.currentUser.licenseStatus = json.license.status;
+              if (json.license.validUntil) authEngine.currentUser.validUntil = json.license.validUntil;
+              authEngine.saveSession();
+              authEngine.updateHeaderAuthUI();
+            }
           }
 
           if (json && json.appData && typeof json.appData === 'object') {
