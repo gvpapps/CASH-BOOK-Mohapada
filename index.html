@@ -4216,7 +4216,7 @@
               const data = await res.json();
               if (data && typeof data === 'object') {
                 for (const u of Object.keys(data)) {
-                  if (u === '27240203701' || u === '27240203702' || u === 'test_ping') continue;
+                  if (!u || u === 'test_ping') continue;
                   const item = data[u];
                   if (!item) continue;
                   if (!allSchools[u]) {
@@ -4280,7 +4280,7 @@
                 for (const k of Object.keys(cbData)) {
                   if (k === 'test_ping') continue;
                   const u = k.replace(/^cashbook_/, '').trim().replace(/\s+/g, '');
-                  if (!u || u === '27240203701' || u === '27240203702') continue;
+                  if (!u || u === 'test_ping') continue;
                   const item = cbData[k];
                   if (!item) continue;
                   const sName = item.schoolName || (item.schoolInfo && item.schoolInfo.name) || (item.profile && item.profile.name) || 'जि.प. शाळा';
@@ -4311,9 +4311,7 @@
           }
         }
 
-        // Chevane is an independent separate file: never merge or include Chevane
-        delete allSchools['27240203701'];
-        delete allSchools['27240203702'];
+        // Memory cache of all registered schools
 
         // Save into memory cache
         this.adminSchoolsCache = allSchools;
@@ -5166,37 +5164,8 @@
     }
 
     function purgeChevaneLegacyDemoData(d) {
-      if (!d || !d.accounts) return;
-      if (d.schoolInfo && (d.schoolInfo.udise === '27240203701' || d.schoolInfo.udise === '27240203702' || (d.schoolInfo.name && d.schoolInfo.name.includes('चेवणे')))) {
-        d.schoolInfo = { name: '', center: '', taluka: '', district: '', udise: '', headmaster: '' };
-      }
-      (d.accounts || []).forEach(acc => {
-        if (!acc || !acc.years) return;
-        Object.keys(acc.years).forEach(y => {
-          const yr = acc.years[y];
-          if (!yr) return;
-          if (yr.heads) {
-            yr.heads.forEach(h => {
-              // Reset Chevane template default opening balances
-              if (h.openingBalance === 793 || h.openingBalance === 4500 || h.openingBalance === 2994 || h.openingBalance === 25000 || h.openingBalance === 5000 || h.openingBalance === 289 || h.openingBalance === 500 || h.openingBalance === 1000) {
-                h.openingBalance = 0;
-              }
-            });
-          }
-          if (yr.months) {
-            Object.keys(yr.months).forEach(m => {
-              const mo = yr.months[m];
-              if (!mo) return;
-              if (mo.jama && Array.isArray(mo.jama)) {
-                mo.jama = mo.jama.filter(j => j && !['j1','j2','j3','j4','j5','j6','j7','j8','j9','j10'].includes(j.id) && !(typeof j.id === 'string' && j.id.startsWith('tx_17903')));
-              }
-              if (mo.kharch && Array.isArray(mo.kharch)) {
-                mo.kharch = mo.kharch.filter(k => k && !['k1','k2','k3','k4'].includes(k.id) && k.billNo !== '247008' && k.billNo !== '247009' && !(typeof k.id === 'string' && k.id.startsWith('tx_17903')));
-              }
-            });
-          }
-        });
-      });
+      // Safe no-op: Preserve all registered school data and user opening balances
+      return;
     }
 
     function loadData() {
@@ -7516,7 +7485,7 @@
           (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.udise && authEngine.currentUser.udise !== 'ADMIN' ? authEngine.currentUser.udise : '') ||
           (appData && appData.schoolInfo && appData.schoolInfo.udise) ||
           this.config.schoolCode ||
-          '27240203701'
+          ''
         ).trim();
       },
 
@@ -8280,12 +8249,6 @@
     }
 
     function initApp() {
-      // Clear legacy Chevane schoolInfo for unauthenticated visitors
-      if (typeof authEngine !== 'undefined' && !authEngine.currentUser) {
-        if (appData && appData.schoolInfo && (appData.schoolInfo.udise === '27240203701' || appData.schoolInfo.name === 'जिल्हा परिषद प्राथमिक शाळा चेवणे')) {
-          appData.schoolInfo = { name: '', center: '', taluka: '', district: '', udise: '', headmaster: '' };
-        }
-      }
       loadData();
       authEngine.init();
       firebaseSync.init();
