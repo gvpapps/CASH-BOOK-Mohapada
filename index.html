@@ -7445,14 +7445,15 @@
     // =========================================================================
     const firebaseSync = {
       config: {
-        enabled: false,
+        enabled: true,
         autoSync: true,
         schoolCode: '',
-        firebaseUrl: '',
+        firebaseUrl: 'https://cashbook-mohapada-default-rtdb.firebaseio.com/',
         lastSyncTime: null,
         status: 'idle', // 'idle', 'syncing', 'synced', 'error', 'offline'
         lastError: ''
       },
+      _syncStartTime: 0,
       isSyncing: false,
       hasPendingChanges: false,
       debounceTimer: null,
@@ -7504,13 +7505,13 @@
             this.config.autoSync = true;
           }
 
-          // Set default Firebase RTDB URL and enable automatic background sync
+          // Set default Firebase RTDB URL and GUARANTEE always-on live sync
           if (!this.config.firebaseUrl) {
             const defaultUrl = (typeof authEngine !== 'undefined' && authEngine.getFirebaseUrl) ? authEngine.getFirebaseUrl() : 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
             this.config.firebaseUrl = defaultUrl ? (defaultUrl.replace(/\/$/, '') + '/') : 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
-            this.config.enabled = true;
-            this.config.autoSync = true;
           }
+          this.config.enabled = true;
+          this.config.autoSync = true;
           if (!this.config.schoolCode) {
             this.config.schoolCode = (appData && appData.schoolInfo && appData.schoolInfo.udise) || (act && act.udise) || "";
           }
@@ -7910,11 +7911,21 @@
 
       async pushData(isSilent = false, isForce = false) {
         if (!this.config.firebaseUrl) {
-          if (!isSilent) alert('कृपया प्रथम Firebase Realtime Database URL प्रविष्ट करा.');
-          return false;
+          this.config.firebaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
         }
-        if (this.isSyncing) return false;
+        this.config.enabled = true;
+
+        // Auto-release stuck lock after 10 seconds
+        if (this.isSyncing) {
+          if (Date.now() - (this._syncStartTime || 0) > 10000) {
+            console.warn("Push sync lock auto-released after timeout");
+            this.isSyncing = false;
+          } else {
+            return false;
+          }
+        }
         this.isSyncing = true;
+        this._syncStartTime = Date.now();
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           this.isSyncing = false;
@@ -7925,11 +7936,18 @@
           return false;
         }
 
+        const currentUdise = this.getSchoolUdise();
+        if (!currentUdise) {
+          this.isSyncing = false;
+          this.config.status = 'idle';
+          this.updateUIStatus();
+          return false;
+        }
+
         this.config.status = 'syncing';
         this.updateUIStatus();
 
         const cleanBaseUrl = this.config.firebaseUrl.trim().replace(/\/$/, '');
-        const currentUdise = this.getSchoolUdise();
         this.config.schoolCode = currentUdise;
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
@@ -8094,11 +8112,9 @@
             }
             return true;
           } else {
-            const errTxt = await res.text();
-            if (res.status === 401 || res.status === 403) {
-              throw new Error('Firebase Rules लॉक आहेत (401 Permission Denied). कृपया Rules मध्ये ".read": true, ".write": true करा.');
-            }
-            throw new Error(`Firebase Error (${res.status}): ${errTxt.substring(0, 80)}`);
+            const firstErr = results.find(r => r.status === 'rejected' || (r.value && !r.value.ok));
+            const msg = firstErr ? (firstErr.reason ? firstErr.reason.message : (firstErr.value ? `HTTP ${firstErr.value.status}` : 'त्रुटी')) : 'अज्ञात त्रुटी';
+            throw new Error(`Firebase Sync Error: ${msg}`);
           }
         } catch (err) {
           console.warn("Firebase push error:", err);
@@ -8116,11 +8132,21 @@
 
       async pullData(isSilent = false, forceReplace = false) {
         if (!this.config.firebaseUrl) {
-          if (!isSilent) alert('कृपया प्रथम Firebase Realtime Database URL प्रविष्ट करा.');
-          return false;
+          this.config.firebaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
         }
-        if (this.isSyncing) return false;
+        this.config.enabled = true;
+
+        // Auto-release stuck lock after 10 seconds
+        if (this.isSyncing) {
+          if (Date.now() - (this._syncStartTime || 0) > 10000) {
+            console.warn("Pull sync lock auto-released after timeout");
+            this.isSyncing = false;
+          } else {
+            return false;
+          }
+        }
         this.isSyncing = true;
+        this._syncStartTime = Date.now();
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           this.isSyncing = false;
@@ -8130,13 +8156,20 @@
           return false;
         }
 
+        const currentUdise = this.getSchoolUdise();
+        if (!currentUdise) {
+          this.isSyncing = false;
+          this.config.status = 'idle';
+          this.updateUIStatus();
+          return false;
+        }
+
         if (!isSilent) {
           this.config.status = 'syncing';
           this.updateUIStatus();
         }
 
         const cleanBaseUrl = this.config.firebaseUrl.trim().replace(/\/$/, '');
-        const currentUdise = this.getSchoolUdise();
         this.config.schoolCode = currentUdise;
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
