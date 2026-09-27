@@ -7901,14 +7901,14 @@
         this.config.status = 'syncing';
         this.updateUIStatus();
 
-        const cleanBaseUrl = this.config.firebaseUrl.trim().replace(/\/$/, '');
+        const cleanBaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
         this.config.schoolCode = currentUdise;
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
         try {
           let existingRemote = null;
           try {
-            const checkRes = await fetch(endpoint);
+            const checkRes = await fetch(`${endpoint}?t=${Date.now()}`, { cache: 'no-store' });
             if (checkRes.ok) {
               existingRemote = await checkRes.json();
             }
@@ -8112,7 +8112,7 @@
           this.updateUIStatus();
         }
 
-        const cleanBaseUrl = this.config.firebaseUrl.trim().replace(/\/$/, '');
+        const cleanBaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
         this.config.schoolCode = currentUdise;
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
@@ -8196,7 +8196,7 @@
                 appData.schoolInfo = Object.assign({}, appData.schoolInfo, json.schoolInfo);
               }
             } else {
-              this.mergeAppData(json.appData, json);
+              this.mergeAppData(json.appData, json, forceReplace);
             }
 
             // Ensure all accounts and years are sanitized
@@ -8249,7 +8249,7 @@
         }
       },
 
-      mergeAppData(remoteAppData, remoteRoot) {
+      mergeAppData(remoteAppData, remoteRoot, forceReplace = false) {
         if (!remoteAppData) return;
 
         // 1. School Info Auto-Sync & Merge (UDISE, Name, Center, Taluka, District, HM)
@@ -8315,7 +8315,7 @@
                   } else {
                     const rBal = Number(rh.openingBalance) || 0;
                     const lBal = Number(lh.openingBalance) || 0;
-                    if (forceReplace) {
+                    if (Boolean(forceReplace)) {
                       lh.openingBalance = rBal;
                     } else if (lBal === 0 && rBal > 0) {
                       lh.openingBalance = rBal;
