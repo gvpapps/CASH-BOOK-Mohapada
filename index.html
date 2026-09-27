@@ -699,48 +699,119 @@
       margin: 8mm 8mm;
     }
 
+    /* While printing is preparing / active, suppress screen elements */
+    body.is-printing > *:not(#printContainer) {
+      display: none !important;
+    }
+    body.is-printing #printContainer {
+      display: block !important;
+    }
+
     @media print {
-      body {
+      html, body {
         background: #ffffff !important;
         color: #000000 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: static !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
-      body * {
-        visibility: hidden;
+
+      /* Hide all non-printable application elements completely so they take 0 layout space */
+      body > *:not(#printContainer) {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
       }
-      #printContainer, #printContainer * {
-        visibility: visible;
+
+      .navbar, 
+      .sub-nav, 
+      .tabs-bar,
+      .main-content, 
+      .mobile-bottom-nav, 
+      .modal-backdrop, 
+      .toast-container,
+      .no-print,
+      header,
+      nav,
+      main {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
       }
+
+      /* Normal document flow for print container (NEVER position: absolute) */
       #printContainer {
         display: block !important;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        background: #ffffff;
-      }
-      .no-print {
-        display: none !important;
-      }
-      .cashbook-sheet {
-        border: 1.5px solid #000000 !important;
-        box-shadow: none !important;
+        visibility: visible !important;
+        position: static !important;
+        float: none !important;
+        width: 100% !important;
         margin: 0 !important;
-        padding: 6mm 8mm !important;
-        page-break-after: always !important;
-        break-after: page !important;
+        padding: 0 !important;
         background: #ffffff !important;
       }
+
+      #printContainer * {
+        visibility: visible !important;
+      }
+
+      /* Each cashbook sheet is locked to exactly one full A4 page */
+      .cashbook-sheet {
+        display: block !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-height: 250mm !important; /* Forces each sheet to fill the page; prevents iOS Safari from merging 2 sheets into 1 page */
+        border: 1.5px solid #000000 !important;
+        box-shadow: none !important;
+        margin: 0 0 0 0 !important;
+        padding: 6mm 8mm !important;
+        background: #ffffff !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        clear: both !important;
+      }
+
+      /* Enforce each subsequent sheet to start on a fresh page */
+      .cashbook-sheet + .cashbook-sheet {
+        page-break-before: always !important;
+        break-before: page !important;
+      }
+
+      /* Prevent trailing empty blank page at the end of the document */
+      .cashbook-sheet:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+      }
+
+      .cashbook-sheet table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+
       .print-dual-ledger {
         display: grid !important;
         grid-template-columns: 1fr 1fr !important;
         gap: 8px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
     }
 
     /* ==================== MOBILE APP-LIKE UI STYLES (iOS & Android Native Feel) ==================== */
-    @media (max-width: 768px) {
+    @media screen and (max-width: 768px) {
       /* 1. App Header: 2-Tier Native Mobile Layout */
       .navbar {
         position: sticky !important;
@@ -7355,9 +7426,18 @@
         `;
       }
 
+      document.body.classList.add("is-printing");
+
+      const cleanupPrint = () => {
+        document.body.classList.remove("is-printing");
+      };
+
+      window.addEventListener("afterprint", cleanupPrint, { once: true });
+
       setTimeout(() => {
         window.print();
-      }, 200);
+        setTimeout(cleanupPrint, 2000);
+      }, 450);
     }
 
     // =========================================================================
