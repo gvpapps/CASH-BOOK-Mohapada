@@ -1987,9 +1987,9 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label style="font-weight: 700; color: #1e3a8a;">👑 ॲडमिन मोड (Admin Mode):</label>
-            <input type="text" id="fbSchoolCodeInput" value="ADMIN" readonly style="background: #f1f5f9; font-weight: 800; color: #1e3a8a; border: 1.5px solid #94a3b8;" />
-            <small style="color: #64748b;">(सुपर ॲडमिन मास्टर क्लाऊड डेटाबेस - शाळा लॉगिन येथे नाही)</small>
+            <label style="font-weight: 700; color: #1e3a8a;">🏫 शाळा UDISE क्रमांक / मोड:</label>
+            <input type="text" id="fbSchoolCodeInput" placeholder="उदा. 27240219201" style="font-weight: 800; color: #1e3a8a; border: 1.5px solid #94a3b8;" />
+            <small style="color: #64748b;">(या UDISE क्रमांकावर डेटा क्लाऊडवर सुरक्षित ठेवला जातो)</small>
           </div>
           <div class="form-group">
             <label>Google Firebase Realtime Database URL: *</label>
@@ -2928,29 +2928,11 @@
       },
 
       getFirebaseUrl() {
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl && firebaseSync.config.firebaseUrl.trim()) {
-          const url = firebaseSync.config.firebaseUrl.trim().replace(/\/$/, '');
-          if (url.includes('.firebaseio.com') && !url.includes('your-project') && !url.includes('school-cashbook-default')) {
-            return url;
-          }
-        }
-        const act = (typeof getActivationConfig === 'function') ? getActivationConfig() : null;
-        if (act && act.firebaseUrl && act.firebaseUrl.trim()) {
-          const url = act.firebaseUrl.trim().replace(/\/$/, '');
-          if (url.includes('.firebaseio.com') && !url.includes('your-project') && !url.includes('school-cashbook-default')) {
-            return url;
-          }
-        }
         return 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
       },
 
       getAllEndpoints() {
-        const endpoints = [
-          this.getFirebaseUrl(),
-          'https://cashbook-mohapada-default-rtdb.firebaseio.com',
-          'https://gvp-cashbook-default-rtdb.firebaseio.com'
-        ];
-        return [...new Set(endpoints.map(u => (u || '').replace(/\/$/, '')))].filter(Boolean);
+        return ['https://cashbook-mohapada-default-rtdb.firebaseio.com'];
       },
 
       init() {
@@ -7482,42 +7464,20 @@
           const saved = safeStorage.getItem(this.STORAGE_KEY) || safeStorage.getItem('CASHBOOK_CLOUD_SYNC_CONFIG');
           if (saved) {
             this.config = Object.assign({}, this.config, JSON.parse(saved));
-          } else {
-            // Check if MDM has a Firebase URL configured on this device
-            const mdmSaved = safeStorage.getItem('MDM_CLOUD_SYNC_CONFIG');
-            if (mdmSaved) {
-              const mdmConfig = JSON.parse(mdmSaved);
-              if (mdmConfig && mdmConfig.firebaseUrl) {
-                this.config.firebaseUrl = mdmConfig.firebaseUrl;
-                if (mdmConfig.schoolCode) this.config.schoolCode = mdmConfig.schoolCode;
-                this.config.enabled = true; // Auto-enable if MDM was configured!
-                this.config.autoSync = true;
-                this.config.status = 'idle';
-              }
-            }
-          }
-          // Load from activation config if saved
-          const act = getActivationConfig();
-          if (act && act.firebaseUrl && !this.config.firebaseUrl) {
-            this.config.firebaseUrl = act.firebaseUrl;
-            this.config.schoolCode = act.udise || this.config.schoolCode;
-            this.config.enabled = true;
-            this.config.autoSync = true;
-          }
-
-          // Set default Firebase RTDB URL and GUARANTEE always-on live sync
-          if (!this.config.firebaseUrl) {
-            const defaultUrl = (typeof authEngine !== 'undefined' && authEngine.getFirebaseUrl) ? authEngine.getFirebaseUrl() : 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
-            this.config.firebaseUrl = defaultUrl ? (defaultUrl.replace(/\/$/, '') + '/') : 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
-          }
-          this.config.enabled = true;
-          this.config.autoSync = true;
-          if (!this.config.schoolCode) {
-            this.config.schoolCode = (appData && appData.schoolInfo && appData.schoolInfo.udise) || (act && act.udise) || "";
           }
         } catch (e) {
           console.warn("Could not load Firebase config:", e);
         }
+
+        // Strictly enforce official realtime database URL
+        this.config.firebaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
+        this.config.enabled = true;
+        this.config.autoSync = true;
+        if (!this.config.schoolCode) {
+          const act = (typeof getActivationConfig === 'function') ? getActivationConfig() : null;
+          this.config.schoolCode = (appData && appData.schoolInfo && appData.schoolInfo.udise) || (act && act.udise) || "";
+        }
+        this.saveConfig();
       },
 
       checkUrlParamsForSync() {
@@ -7526,15 +7486,7 @@
           const params = new URLSearchParams(window.location.search);
           let changed = false;
 
-          if (params.has('fb_url')) {
-            const url = decodeURIComponent(params.get('fb_url')).trim();
-            if (url && url.startsWith('http')) {
-              this.config.firebaseUrl = url.replace(/\/$/, '') + '/';
-              this.config.enabled = true;
-              this.config.autoSync = true;
-              changed = true;
-            }
-          }
+          this.config.firebaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
 
           if (params.has('udise')) {
             const code = decodeURIComponent(params.get('udise')).trim();
@@ -7714,24 +7666,26 @@
               </div>
             `;
           } else if (this.config.status === 'syncing') {
+            const udiseDisplay = this.getSchoolUdise() ? `शाळा UDISE: <strong>${this.getSchoolUdise()}</strong>` : '<strong>👑 ॲडमिन मोड</strong>';
             statusBox.innerHTML = `
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
                   <strong style="color: #d97706; font-size: 1rem;">🔄 Google Firebase डेटा ट्रान्सफर सुरू आहे...</strong>
                   <div style="color: #92400e; font-size: 0.82rem; margin-top: 2px;">
-                    मोड: <strong>👑 ॲडमिन मास्टर कंट्रोल (ADMIN)</strong> | कृपया थोडी प्रतीक्षा करा...
+                    ${udiseDisplay} | कृपया थोडी प्रतीक्षा करा...
                   </div>
                 </div>
                 <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">प्रक्रिया सुरू</span>
               </div>
             `;
           } else if (this.config.status === 'synced') {
+            const udiseDisplay = this.getSchoolUdise() ? `शाळा UDISE: <strong>${this.getSchoolUdise()}</strong>` : '<strong>👑 ॲडमिन मोड</strong>';
             statusBox.innerHTML = `
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
                   <strong style="color: #15803d; font-size: 1rem;">🟢 Google Firebase रिअल-टाईम सिंक सक्रिय आहे!</strong>
                   <div style="color: #166534; font-size: 0.82rem; margin-top: 4px;">
-                    मोड: <strong>👑 ॲडमिन मास्टर कंट्रोल (ADMIN)</strong> &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
+                    ${udiseDisplay} &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
                   </div>
                   <div style="color: #475569; font-size: 0.78rem; margin-top: 3px; word-break: break-all;">
                     🔗 जोडलेला डेटाबेस: <code>${this.config.firebaseUrl}</code>
@@ -8082,39 +8036,28 @@
             appData: appData
           };
 
-          // Dual-Cloud Replicated Push: Write in parallel to ALL database endpoints!
-          const allEndpoints = (typeof authEngine !== 'undefined' && authEngine.getAllEndpoints) 
-            ? authEngine.getAllEndpoints() 
-            : [cleanBaseUrl, 'https://cashbook-mohapada-default-rtdb.firebaseio.com', 'https://gvp-cashbook-default-rtdb.firebaseio.com'];
-          
-          const uniqueEndpoints = Array.from(new Set([cleanBaseUrl, ...allEndpoints].filter(Boolean).map(u => u.trim().replace(/\/$/, ''))));
-
-          const pushPromises = uniqueEndpoints.map(ep => {
-            const destUrl = `${ep}/cashbook_schools/${this.getCloudKey()}.json`;
-            return fetch(destUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            }).catch(e => console.warn('Push error for', ep, e));
+          // Single Direct Push to Official Firebase RTDB
+          const destUrl = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
+          const pushRes = await fetch(destUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
           });
 
-          const results = await Promise.allSettled(pushPromises);
-          const anySuccess = results.some(r => r.status === 'fulfilled' && r.value && r.value.ok);
-
-          if (anySuccess || resOkFallback(results)) {
+          if (pushRes.ok) {
             this.config.status = 'synced';
-            this.config.lastSyncTime = new Date().toISOString();
+            this.config.lastSyncTime = payload.updatedAt;
             this.config.lastError = '';
             this.saveConfig();
+            this.updateUIStatus();
             if (!isSilent) {
               if (typeof showToast === 'function') showToast('☁️ डेटा Firebase वर सेव्ह झाला!');
               alert(`☁️ डेटा Google Firebase वर यशस्वीरित्या अपलोड झाला!\n\nशाळा UDISE: ${currentUdise}\nसर्व नोंदी क्लाऊडवर सुरक्षित आहेत.`);
             }
             return true;
           } else {
-            const firstErr = results.find(r => r.status === 'rejected' || (r.value && !r.value.ok));
-            const msg = firstErr ? (firstErr.reason ? firstErr.reason.message : (firstErr.value ? `HTTP ${firstErr.value.status}` : 'त्रुटी')) : 'अज्ञात त्रुटी';
-            throw new Error(`Firebase Sync Error: ${msg}`);
+            const errTxt = await pushRes.text().catch(() => '');
+            throw new Error(`Firebase Error (${pushRes.status}): ${errTxt.substring(0, 100)}`);
           }
         } catch (err) {
           console.warn("Firebase push error:", err);
@@ -8174,29 +8117,20 @@
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
         try {
-          // Dual-Cloud Smart Pull: Query all endpoints and pick the latest data!
-          const allEndpoints = (typeof authEngine !== 'undefined' && authEngine.getAllEndpoints) 
-            ? authEngine.getAllEndpoints() 
-            : [cleanBaseUrl, 'https://cashbook-mohapada-default-rtdb.firebaseio.com', 'https://gvp-cashbook-default-rtdb.firebaseio.com'];
-          
-          const uniqueEndpoints = Array.from(new Set([cleanBaseUrl, ...allEndpoints].filter(Boolean).map(u => u.trim().replace(/\/$/, ''))));
-
           let res = null;
           let json = null;
 
-          for (const ep of uniqueEndpoints) {
-            try {
-              const fetchRes = await fetch(`${ep}/cashbook_schools/${this.getCloudKey()}.json?t=${Date.now()}`, { cache: 'no-store' });
-              if (fetchRes.ok) {
-                const fetchJson = await fetchRes.json();
-                if (fetchJson && fetchJson.appData) {
-                  if (!json || new Date(fetchJson.updatedAt || 0) > new Date(json.updatedAt || 0)) {
-                    json = fetchJson;
-                    res = fetchRes;
-                  }
-                }
+          try {
+            const fetchRes = await fetch(`${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (fetchRes.ok) {
+              const fetchJson = await fetchRes.json();
+              if (fetchJson && fetchJson.appData) {
+                json = fetchJson;
+                res = fetchRes;
               }
-            } catch(e) {}
+            }
+          } catch(e) {
+            console.warn("Pull fetch error:", e);
           }
 
           // If background pull has identical timestamp as local data, skip re-rendering to prevent any screen blinking!
@@ -8483,10 +8417,10 @@
       const codeInput = document.getElementById('fbSchoolCodeInput');
       const urlInput = document.getElementById('fbUrlInput');
       if (codeInput) {
-        codeInput.value = 'ADMIN';
+        codeInput.value = firebaseSync.getSchoolUdise() || (appData && appData.schoolInfo && appData.schoolInfo.udise) || '';
       }
       if (urlInput) {
-        urlInput.value = firebaseSync.config.firebaseUrl || 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
+        urlInput.value = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
       }
       firebaseSync.updateUIStatus();
     }
@@ -8503,16 +8437,13 @@
     async function syncDeletedSchoolsFromCloud() {
       try {
         if (typeof authEngine === 'undefined') return;
-        const endpoints = authEngine.getAllEndpoints();
-        for (const ep of endpoints) {
-          const res = await fetch(`${ep}/deleted_schools.json?t=${Date.now()}`, { cache: 'no-store' });
-          if (res.ok) {
-            const delMap = await res.json();
-            if (delMap && typeof delMap === 'object') {
-              Object.keys(delMap).forEach(u => {
-                authEngine.deleteLocalSchoolAuth(u);
-              });
-            }
+        const res = await fetch(`https://cashbook-mohapada-default-rtdb.firebaseio.com/deleted_schools.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const delMap = await res.json();
+          if (delMap && typeof delMap === 'object') {
+            Object.keys(delMap).forEach(u => {
+              authEngine.deleteLocalSchoolAuth(u);
+            });
           }
         }
       } catch(e) {}
