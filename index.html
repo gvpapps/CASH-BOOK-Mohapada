@@ -3387,14 +3387,7 @@
         const dd = document.getElementById('userAuthDropdown');
         if (dd) dd.style.display = 'none';
 
-        // Update School Info in App Data
-        if (appData && appData.schoolInfo) {
-          appData.schoolInfo.udise = matchedUdise;
-          if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
-          saveData();
-        }
-
-        // Switch Firebase schoolCode & AUTO-DOWNLOAD latest cloud data
+        // Switch Firebase schoolCode & AUTO-DOWNLOAD latest cloud data FIRST
         if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
           firebaseSync.config.schoolCode = matchedUdise;
           firebaseSync.saveConfig();
@@ -3404,6 +3397,13 @@
               await firebaseSync.pullData(true, true);
             } catch(e) {}
           }
+        }
+
+        // Update School Info in App Data after pull
+        if (appData && appData.schoolInfo) {
+          appData.schoolInfo.udise = matchedUdise;
+          if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
+          safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         }
 
         refreshCurrentView();
@@ -4541,39 +4541,65 @@
 
       async adminOpenSchool(udise) {
         if (!udise) return;
-        const cleanBaseUrl = this.getFirebaseUrl();
+        const cleanUdise = String(udise).trim().replace(/\s+/g, '');
         closeModal('superAdminModal');
-        showToast(`🔄 शाळा (${udise}) चे कॅश बुक उघडत आहे...`);
+        showToast(`🔄 शाळा (${cleanUdise}) चे कॅश बुक उघडत आहे...`);
 
-        let sName = this.getSchoolDisplayName(udise);
-        if (cleanBaseUrl) {
+        let sName = this.getSchoolDisplayName(cleanUdise);
+        const endpoints = this.getAllEndpoints();
+        let targetDoc = null;
+
+        // Query all cloud databases to fetch the absolute latest records
+        for (const ep of endpoints) {
           try {
-            const sRes = await fetch(`${cleanBaseUrl}/schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
-            if (sRes.ok) {
-              const sData = await sRes.json();
-              if (sData && sData.profile && sData.profile.name) {
-                sName = sData.profile.name;
+            const res = await fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              const d = await res.json();
+              if (d && d.appData) {
+                if (!targetDoc || new Date(d.updatedAt || 0) > new Date(targetDoc.updatedAt || 0)) {
+                  targetDoc = d;
+                }
               }
             }
           } catch(e) {}
         }
 
-        if (appData && appData.schoolInfo) {
-          appData.schoolInfo.udise = udise;
-          appData.schoolInfo.name = sName;
-          saveData();
+        if (targetDoc && targetDoc.appData) {
+          appData = targetDoc.appData;
+          if (targetDoc.schoolInfo) {
+            appData.schoolInfo = Object.assign({}, appData.schoolInfo, targetDoc.schoolInfo);
+          }
+          if (targetDoc.schoolName) sName = targetDoc.schoolName;
+        } else {
+          // Initialize clean template for this school
+          appData = getDefaultData();
+          appData.schoolInfo = {
+            name: sName,
+            center: '',
+            taluka: '',
+            district: '',
+            udise: cleanUdise,
+            headmaster: ''
+          };
         }
+
+        if (appData && appData.schoolInfo) {
+          appData.schoolInfo.udise = cleanUdise;
+          if (!appData.schoolInfo.name) appData.schoolInfo.name = sName;
+        }
+
+        // Save cleanly into local storage
+        safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
 
         if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
-          firebaseSync.config.schoolCode = udise;
+          firebaseSync.config.schoolCode = cleanUdise;
           firebaseSync.saveConfig();
-          try {
-            await firebaseSync.pullData(true, true);
-          } catch(e) {}
         }
 
+        // Switch tab to heads & refresh view so admin immediately sees the full cashbook!
+        switchTab('heads');
         refreshCurrentView();
-        showToast(`✅ ${sName} (UDISE: ${udise}) उघडण्यात आली!`);
+        showToast(`✅ ${sName} (UDISE: ${cleanUdise}) चे कॅश बुक उघडले!`);
       },
 
       async adminApprove(udise) {
@@ -5259,6 +5285,12 @@
         });
       });
       // Opening balances preserved safely
+    }
+
+    
+    function resOkFallback(results) {
+      if (!Array.isArray(results)) return false;
+      return results.some(r => r.status === 'fulfilled' && r.value && (r.value.ok || r.value.status === 200));
     }
 
     function saveData(immediateSync = false) {
@@ -7666,8 +7698,8 @@
           alert("कृपया प्रथम Firebase Database URL प्रविष्ट करा व सेव्ह करा!");
           return;
         }
-        let origin = "https://gvpapps.github.io/CASHBOOK/";
-        if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
+        let origin = "https://gvpapps.github.io/CASH-BOOK-Mohapada/";
+        if (typeof window !== 'undefined' && window.location && window.location.protocol && window.location.protocol.startsWith('http')) {
           origin = window.location.origin + window.location.pathname;
         }
         const shareUrl = `${origin}?fb_url=${encodeURIComponent(url)}&udise=${encodeURIComponent(code)}&t=${Date.now()}`;
@@ -7952,13 +7984,26 @@
             appData: appData
           };
 
-          const res = await fetch(endpoint, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+          // Dual-Cloud Replicated Push: Write in parallel to ALL database endpoints!
+          const allEndpoints = (typeof authEngine !== 'undefined' && authEngine.getAllEndpoints) 
+            ? authEngine.getAllEndpoints() 
+            : [cleanBaseUrl, 'https://cashbook-mohapada-default-rtdb.firebaseio.com', 'https://gvp-cashbook-default-rtdb.firebaseio.com'];
+          
+          const uniqueEndpoints = Array.from(new Set([cleanBaseUrl, ...allEndpoints].filter(Boolean).map(u => u.trim().replace(/\/$/, ''))));
+
+          const pushPromises = uniqueEndpoints.map(ep => {
+            const destUrl = `${ep}/cashbook_schools/${this.getCloudKey()}.json`;
+            return fetch(destUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            }).catch(e => console.warn('Push error for', ep, e));
           });
 
-          if (res.ok) {
+          const results = await Promise.allSettled(pushPromises);
+          const anySuccess = results.some(r => r.status === 'fulfilled' && r.value && r.value.ok);
+
+          if (anySuccess || resOkFallback(results)) {
             this.config.status = 'synced';
             this.config.lastSyncTime = new Date().toISOString();
             this.config.lastError = '';
@@ -8016,10 +8061,29 @@
         const endpoint = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
 
         try {
-          let res = await fetch(endpoint);
+          // Dual-Cloud Smart Pull: Query all endpoints and pick the latest data!
+          const allEndpoints = (typeof authEngine !== 'undefined' && authEngine.getAllEndpoints) 
+            ? authEngine.getAllEndpoints() 
+            : [cleanBaseUrl, 'https://cashbook-mohapada-default-rtdb.firebaseio.com', 'https://gvp-cashbook-default-rtdb.firebaseio.com'];
+          
+          const uniqueEndpoints = Array.from(new Set([cleanBaseUrl, ...allEndpoints].filter(Boolean).map(u => u.trim().replace(/\/$/, ''))));
+
+          let res = null;
           let json = null;
-          if (res.ok) {
-            json = await res.json();
+
+          for (const ep of uniqueEndpoints) {
+            try {
+              const fetchRes = await fetch(`${ep}/cashbook_schools/${this.getCloudKey()}.json?t=${Date.now()}`, { cache: 'no-store' });
+              if (fetchRes.ok) {
+                const fetchJson = await fetchRes.json();
+                if (fetchJson && fetchJson.appData) {
+                  if (!json || new Date(fetchJson.updatedAt || 0) > new Date(json.updatedAt || 0)) {
+                    json = fetchJson;
+                    res = fetchRes;
+                  }
+                }
+              }
+            } catch(e) {}
           }
 
           // If background pull has identical timestamp as local data, skip re-rendering to prevent any screen blinking!
