@@ -2815,6 +2815,10 @@
       },
 
       showPendingApprovalAlert(actionName = 'नोंदी करणे') {
+        if (this.currentUser && this.currentUser.licenseStatus === 'BLOCKED') {
+          alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\n" + actionName + " करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
+          return;
+        }
         alert("🔒 परवाना प्रलंबित आहे (Pending Admin Approval)!\n\n" + actionName + " केवळ ॲडमिनने खात्याला मंजुरी (Active/Approve) दिल्यानंतरच करता येईल.\n\nसध्या आपण सर्व अहवाल, ताळेबंद व रजिस्टर पाहू शकता आणि शाळा माहिती बदलू शकता. मंजुरीसाठी कृपया ॲडमिनशी संपर्क साधा.");
         if (this.currentUser && this.currentUser.licenseStatus === 'PENDING') {
           setTimeout(() => {
@@ -3327,10 +3331,14 @@
         refreshCurrentView();
         showToast(`✅ ${this.currentUser.name} मध्ये यशस्वी लॉगिन!`);
 
-        // If license is PENDING, open subscription modal
+        // If license is PENDING, open subscription modal; if BLOCKED, alert user
         if (this.currentUser.licenseStatus === 'PENDING') {
           setTimeout(() => {
             authEngine.openSubscriptionModal();
+          }, 400);
+        } else if (this.currentUser.licenseStatus === 'BLOCKED') {
+          setTimeout(() => {
+            alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
           }, 400);
         }
       },
@@ -4019,132 +4027,22 @@
         }
       },
 
-      async loadAndRenderAdminSchools() {
-        const tbody = document.getElementById('adminSchoolsTableBody');
-        const tabTbody = document.getElementById('adminTabSchoolsTableBody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
-        if (tabTbody) tabTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
-
-        let allSchools = {};
-
-        // Fetch from Firebase /schools.json across configured & fallback databases
-        const cleanBaseUrl = this.getFirebaseUrl() || 'https://cashbook-mohapada-default-rtdb.firebaseio.com';
-        const endpoints = [
-          cleanBaseUrl,
-          'https://cashbook-mohapada-default-rtdb.firebaseio.com',
-          'https://gvp-cashbook-default-rtdb.firebaseio.com'
-        ];
-        const uniqueEndpoints = [...new Set(endpoints.map(u => (u || '').replace(/\/$/, '')))].filter(Boolean);
-
-        for (const endpoint of uniqueEndpoints) {
-          try {
-            // A. Fetch from /schools.json
-            const res = await fetch(`${endpoint}/schools.json?t=${Date.now()}`, { cache: 'no-store' });
-            if (res.ok) {
-              const data = await res.json();
-              if (data && typeof data === 'object') {
-                for (const u of Object.keys(data)) {
-                  if (u === '27240203701' || u === '27240203702' || u === 'test_ping') continue;
-                  const item = data[u];
-                  if (!item) continue;
-                  if (!allSchools[u]) {
-                    allSchools[u] = {
-                      profile: Object.assign({}, item.profile),
-                      license: Object.assign({}, item.license),
-                      auth: Object.assign({}, item.auth)
-                    };
-                  } else {
-                    allSchools[u].profile = Object.assign({}, item.profile, allSchools[u].profile);
-                    allSchools[u].auth = Object.assign({}, item.auth, allSchools[u].auth);
-                    allSchools[u].license = Object.assign({}, item.license, allSchools[u].license);
-                  }
-                  if (!allSchools[u].profile.name && allSchools[u].auth.name) {
-                    allSchools[u].profile.name = allSchools[u].auth.name;
-                  }
-                  if (!allSchools[u].profile.udise) {
-                    allSchools[u].profile.udise = u;
-                  }
-                }
-              }
-            }
-
-            // B. ALSO Fetch from /cashbook_schools.json so ANY school registered/synced reflects in Admin panel!
-            const cbRes = await fetch(`${endpoint}/cashbook_schools.json?t=${Date.now()}`, { cache: 'no-store' });
-            if (cbRes.ok) {
-              const cbData = await cbRes.json();
-              if (cbData && typeof cbData === 'object') {
-                for (const k of Object.keys(cbData)) {
-                  if (k === 'test_ping') continue;
-                  const u = k.replace(/^cashbook_/, '').trim().replace(/\s+/g, '');
-                  if (!u || u === '27240203701' || u === '27240203702') continue;
-                  const item = cbData[k];
-                  if (!item) continue;
-                  const sName = item.schoolName || (item.schoolInfo && item.schoolInfo.name) || (item.profile && item.profile.name) || 'जि.प. शाळा';
-                  const hm = (item.schoolInfo && item.schoolInfo.headmaster) || item.updatedBy || '';
-                  const mob = (item.auth && item.auth.mobile) || (item.schoolInfo && item.schoolInfo.mobile) || '';
-                  if (!allSchools[u]) {
-                    allSchools[u] = {
-                      profile: { udise: u, name: sName, headmaster: hm },
-                      license: item.license || { status: 'PENDING', activatedYears: ['2024-25', '2025-26'] },
-                      auth: item.auth || { udise: u, name: sName, mobile: mob }
-                    };
-                    // Auto-sync back to /schools/${u} so both endpoints and tables stay unified
-                    fetch(`${endpoint}/schools/${u}.json`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(allSchools[u])
-                    }).catch(() => {});
-                  } else {
-                    if (!allSchools[u].profile.name || allSchools[u].profile.name === 'जि.प. शाळा') {
-                      allSchools[u].profile.name = sName;
-                    }
-                    if (!allSchools[u].profile.headmaster) {
-                      allSchools[u].profile.headmaster = hm;
-                    }
-                    if (!allSchools[u].auth.mobile && mob) {
-                      allSchools[u].auth.mobile = mob;
-                    }
-                  }
-                }
-              }
-            }
-          } catch(e) {
-            console.warn('Error fetching schools from:', endpoint, e);
-          }
+      getSchoolDisplayName(udise) {
+        if (!udise) return 'शाळा';
+        const clean = String(udise).trim();
+        if (this.adminSchoolsCache && this.adminSchoolsCache[clean]) {
+          const s = this.adminSchoolsCache[clean];
+          return (s.profile && s.profile.name) || (s.auth && s.auth.name) || `शाळा (${clean})`;
         }
+        return `शाळा (${clean})`;
+      },
 
-        // Chevane is an independent separate file: never merge or include Chevane
-        delete allSchools['27240203701'];
-        delete allSchools['27240203702'];
-
-        // Cache local registrations into allSchools
-        const localSchools = this.getLocalSchoolsAuth();
-        Object.keys(localSchools).forEach(u => {
-          if (!allSchools[u]) {
-            allSchools[u] = {
-              profile: { udise: u, name: localSchools[u].name || 'स्थानिक नोंदणी शाळा' },
-              auth: localSchools[u],
-              license: { status: 'ACTIVE', validUntil: '2026-03-31' }
-            };
-          } else if (allSchools[u].auth) {
-            this.saveLocalSchoolAuth(u, allSchools[u].auth);
-          }
-        });
-
-        const schoolsArr = Object.keys(allSchools).map(udise => {
-          const item = allSchools[udise] || {};
-          return {
-            udise: udise,
-            profile: item.profile || {},
-            license: item.license || {},
-            auth: item.auth || {}
-          };
-        });
-
-        // Update Stats
+      updateAdminStats() {
+        const cache = this.adminSchoolsCache || {};
+        const schoolsArr = Object.keys(cache).map(u => cache[u]).filter(Boolean);
         const totalCount = schoolsArr.length;
-        const activeCount = schoolsArr.filter(s => s.license.status === 'ACTIVE').length;
-        const pendingCount = schoolsArr.filter(s => s.license.status === 'PENDING').length;
+        const activeCount = schoolsArr.filter(s => s.license && s.license.status === 'ACTIVE').length;
+        const pendingCount = schoolsArr.filter(s => s.license && s.license.status === 'PENDING').length;
         const fee = this.adminConfig.annualFee || this.DEFAULT_FEE;
         const totalRevenue = activeCount * fee;
 
@@ -4169,46 +4067,262 @@
         if (tabPen) tabPen.innerText = pendingCount;
         if (tabRev) tabRev.innerText = `₹${totalRevenue}`;
         if (tabBanner) tabBanner.style.display = pendingCount > 0 ? 'block' : 'none';
+      },
+
+      updateSchoolLicenseUI(udise, newStatus) {
+        if (!udise) return;
+        const cleanUdise = String(udise).trim().replace(/\s+/g, '');
+        const isAct = newStatus === 'ACTIVE';
+        const isPending = newStatus === 'PENDING';
+
+        // Update in-memory cache
+        if (this.adminSchoolsCache && this.adminSchoolsCache[cleanUdise]) {
+          if (!this.adminSchoolsCache[cleanUdise].license) this.adminSchoolsCache[cleanUdise].license = {};
+          this.adminSchoolsCache[cleanUdise].license.status = newStatus;
+          if (isAct) {
+            this.adminSchoolsCache[cleanUdise].license.approvedAt = new Date().toISOString();
+          } else if (newStatus === 'BLOCKED') {
+            this.adminSchoolsCache[cleanUdise].license.blockedAt = new Date().toISOString();
+          }
+        }
+
+        // Instant DOM update for all rows matching cleanUdise in both tab-admin and superAdminModal
+        const rows = document.querySelectorAll(`tr[data-udise="${cleanUdise}"]`);
+        rows.forEach(tr => {
+          const statusCell = tr.querySelector('.status-cell');
+          if (statusCell) {
+            statusCell.innerHTML = `
+              <span class="badge ${isAct ? 'badge-active' : (isPending ? 'badge-pending' : 'badge-blocked')}">
+                ${isAct ? '🟢 सक्रिय' : (isPending ? '🟡 प्रलंबित' : '🔴 बंद')}
+              </span>
+            `;
+          }
+          const toggleBtn = tr.querySelector('.license-toggle-btn');
+          if (toggleBtn) {
+            if (isAct) {
+              toggleBtn.className = 'btn btn-sm btn-danger license-toggle-btn';
+              toggleBtn.setAttribute('onclick', `authEngine.adminBlock('${cleanUdise}')`);
+              toggleBtn.setAttribute('title', 'ब्लॉक करा');
+              toggleBtn.innerHTML = '🔴 बंद करा';
+            } else {
+              toggleBtn.className = 'btn btn-sm btn-success license-toggle-btn';
+              toggleBtn.setAttribute('onclick', `authEngine.adminApprove('${cleanUdise}')`);
+              toggleBtn.setAttribute('title', 'सक्रिय करा');
+              toggleBtn.innerHTML = '🟢 सक्रिय करा';
+            }
+          }
+        });
+
+        // Update stats counters immediately
+        this.updateAdminStats();
+      },
+
+      async loadAndRenderAdminSchools() {
+        const tbody = document.getElementById('adminSchoolsTableBody');
+        const tabTbody = document.getElementById('adminTabSchoolsTableBody');
+        
+        // Show loading placeholder only if table has no rows currently
+        if (tbody && !tbody.children.length) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
+        if (tabTbody && !tabTbody.children.length) tabTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
+
+        let allSchools = {};
+
+        // Fetch from Firebase /schools.json across configured & fallback databases
+        const uniqueEndpoints = this.getAllEndpoints();
+
+        for (const endpoint of uniqueEndpoints) {
+          try {
+            // A. Fetch from /schools.json
+            const res = await fetch(`${endpoint}/schools.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && typeof data === 'object') {
+                for (const u of Object.keys(data)) {
+                  if (u === '27240203701' || u === '27240203702' || u === 'test_ping') continue;
+                  const item = data[u];
+                  if (!item) continue;
+                  if (!allSchools[u]) {
+                    allSchools[u] = {
+                      profile: Object.assign({}, item.profile || {}),
+                      license: Object.assign({}, item.license || {}),
+                      auth: Object.assign({}, item.auth || {})
+                    };
+                  } else {
+                    allSchools[u].profile = Object.assign({}, allSchools[u].profile, item.profile || {});
+                    allSchools[u].auth = Object.assign({}, allSchools[u].auth, item.auth || {});
+
+                    // Merge license intelligently:
+                    if (item.license && item.license.status) {
+                      if (!allSchools[u].license || !allSchools[u].license.status) {
+                        allSchools[u].license = Object.assign({}, item.license);
+                      } else {
+                        const cur = allSchools[u].license;
+                        const nxt = item.license;
+                        if (nxt.status === 'BLOCKED') {
+                          if (cur.status !== 'BLOCKED') {
+                            const curApprove = new Date(cur.approvedAt || 0).getTime();
+                            const nxtBlock = new Date(nxt.blockedAt || nxt.updatedAt || 0).getTime();
+                            if (nxtBlock >= curApprove) {
+                              allSchools[u].license = Object.assign({}, cur, nxt);
+                            }
+                          } else {
+                            allSchools[u].license = Object.assign({}, cur, nxt);
+                          }
+                        } else if (nxt.status === 'ACTIVE') {
+                          if (cur.status === 'BLOCKED') {
+                            const curBlock = new Date(cur.blockedAt || cur.updatedAt || 0).getTime();
+                            const nxtApprove = new Date(nxt.approvedAt || nxt.updatedAt || 0).getTime();
+                            if (nxtApprove > curBlock) {
+                              allSchools[u].license = Object.assign({}, cur, nxt);
+                            }
+                          } else {
+                            allSchools[u].license = Object.assign({}, cur, nxt);
+                          }
+                        } else {
+                          allSchools[u].license = Object.assign({}, cur, nxt);
+                        }
+                      }
+                    }
+                  }
+                  if (!allSchools[u].profile.name && allSchools[u].auth.name) {
+                    allSchools[u].profile.name = allSchools[u].auth.name;
+                  }
+                  if (!allSchools[u].profile.udise) {
+                    allSchools[u].profile.udise = u;
+                  }
+                }
+              }
+            }
+
+            // B. Also check /cashbook_schools.json for schools registered via sync
+            const cbRes = await fetch(`${endpoint}/cashbook_schools.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (cbRes.ok) {
+              const cbData = await cbRes.json();
+              if (cbData && typeof cbData === 'object') {
+                for (const k of Object.keys(cbData)) {
+                  if (k === 'test_ping') continue;
+                  const u = k.replace(/^cashbook_/, '').trim().replace(/\s+/g, '');
+                  if (!u || u === '27240203701' || u === '27240203702') continue;
+                  const item = cbData[k];
+                  if (!item) continue;
+                  const sName = item.schoolName || (item.schoolInfo && item.schoolInfo.name) || (item.profile && item.profile.name) || 'जि.प. शाळा';
+                  const hm = (item.schoolInfo && item.schoolInfo.headmaster) || item.updatedBy || '';
+                  const mob = (item.auth && item.auth.mobile) || (item.schoolInfo && item.schoolInfo.mobile) || '';
+                  if (!allSchools[u]) {
+                    allSchools[u] = {
+                      profile: { udise: u, name: sName, headmaster: hm },
+                      license: item.license || { status: 'PENDING', activatedYears: ['2024-25', '2025-26'] },
+                      auth: item.auth || { udise: u, name: sName, mobile: mob }
+                    };
+                  } else {
+                    if (!allSchools[u].profile.name || allSchools[u].profile.name === 'जि.प. शाळा') {
+                      allSchools[u].profile.name = sName;
+                    }
+                    if (!allSchools[u].profile.headmaster) {
+                      allSchools[u].profile.headmaster = hm;
+                    }
+                    if (!allSchools[u].auth.mobile && mob) {
+                      allSchools[u].auth.mobile = mob;
+                    }
+                  }
+                }
+              }
+            }
+          } catch(e) {
+            console.warn('Error fetching schools from:', endpoint, e);
+          }
+        }
+
+        // Chevane is an independent separate file: never merge or include Chevane
+        delete allSchools['27240203701'];
+        delete allSchools['27240203702'];
+
+        // Save into memory cache
+        this.adminSchoolsCache = allSchools;
+
+        // Cache local registrations into allSchools
+        const localSchools = this.getLocalSchoolsAuth();
+        Object.keys(localSchools).forEach(u => {
+          if (!allSchools[u]) {
+            allSchools[u] = {
+              profile: { udise: u, name: localSchools[u].name || 'स्थानिक नोंदणी शाळा' },
+              auth: localSchools[u],
+              license: localSchools[u].license || { status: 'PENDING' }
+            };
+          } else if (allSchools[u].auth) {
+            this.saveLocalSchoolAuth(u, allSchools[u].auth);
+          }
+        });
+
+        const schoolsArr = Object.keys(allSchools).map(udise => {
+          const item = allSchools[udise] || {};
+          return {
+            udise: udise,
+            profile: item.profile || {},
+            license: item.license || {},
+            auth: item.auth || {}
+          };
+        });
+
+        // Update stats
+        this.updateAdminStats();
 
         if (tbody) tbody.innerHTML = '';
         if (tabTbody) tabTbody.innerHTML = '';
+
+        const escapeHtml = (str) => {
+          if (!str) return '';
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        };
 
         schoolsArr.forEach(s => {
           const isAct = s.license && s.license.status === 'ACTIVE';
           const isPending = s.license && s.license.status === 'PENDING';
           const utrVal = s.license ? (s.license.utr || s.license.utrNumber || '') : '';
-          const utrStr = utrVal ? `<code style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${utrVal}</code>` : '<small style="color: #94a3b8;">नाही</small>';
+          const utrStr = utrVal ? `<code style="background: #e0f2fe; padding: 2px 6px; border-radius: 4px; color: #0369a1;">${escapeHtml(utrVal)}</code>` : '<small style="color: #94a3b8;">नाही</small>';
           const sName = (s.profile.name || s.auth.name || 'जि.प. शाळा');
-          const safeNameAttr = sName.replace(/'/g, "\\'");
+          const safeNameText = escapeHtml(sName);
+          const safeHeadmaster = escapeHtml(s.profile.headmaster || '-');
+          const safeMobile = escapeHtml(s.auth.mobile || '');
 
           const makeRowHtml = () => `
             <td><strong style="font-family: monospace; color: #1e3a8a;">${s.udise}</strong></td>
-            <td><strong>${sName}</strong></td>
-            <td>${s.profile.headmaster || '-'}</td>
-            <td><a href="tel:${s.auth.mobile || ''}" style="color: #2563eb; text-decoration: none;">${s.auth.mobile || '-'}</a></td>
+            <td><strong>${safeNameText}</strong></td>
+            <td>${safeHeadmaster}</td>
+            <td><a href="tel:${safeMobile}" style="color: #2563eb; text-decoration: none;">${safeMobile || '-'}</a></td>
             <td>${utrStr}</td>
-            <td>
+            <td class="status-cell">
               <span class="badge ${isAct ? 'badge-active' : (isPending ? 'badge-pending' : 'badge-blocked')}">
                 ${isAct ? '🟢 सक्रिय' : (isPending ? '🟡 प्रलंबित' : '🔴 बंद')}
               </span>
             </td>
-            <td>
+            <td class="actions-cell">
               <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                 <button type="button" class="btn btn-sm btn-primary" style="padding: 3px 8px; font-weight: 700; background: #2563eb;" onclick="authEngine.adminOpenSchool('${s.udise}')" title="या शाळेचे कॅश बुक उघडा">📂 शाळा उघडा</button>
-                ${!isAct ? `<button type="button" class="btn btn-sm btn-success" style="padding: 3px 8px;" onclick="authEngine.adminApprove('${s.udise}')" title="सक्रिय करा">🟢 सक्रिय करा</button>` : `<button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px;" onclick="authEngine.adminBlock('${s.udise}')" title="ब्लॉक करा">🔴 बंद करा</button>`}
-                <button type="button" class="btn btn-sm btn-outline" style="padding: 3px 8px; border-color: #7c3aed; color: #6d28d9; font-weight: 700;" onclick="authEngine.adminChangeSchoolPassword('${s.udise}', '${safeNameAttr}')" title="या शाळेचा पासवर्ड बदला किंवा रीसेट करा">🔑 पासवर्ड बदला</button>
-                <button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px; font-weight: 700; background: #dc2626;" onclick="authEngine.adminDeleteSchool('${s.udise}', '${safeNameAttr}')" title="या शाळेचे खाते कायमचे हटवा">🗑️ शाळा हटवा</button>
+                ${!isAct ? 
+                  `<button type="button" class="btn btn-sm btn-success license-toggle-btn" style="padding: 3px 8px;" onclick="authEngine.adminApprove('${s.udise}')" title="सक्रिय करा">🟢 सक्रिय करा</button>` : 
+                  `<button type="button" class="btn btn-sm btn-danger license-toggle-btn" style="padding: 3px 8px;" onclick="authEngine.adminBlock('${s.udise}')" title="ब्लॉक करा">🔴 बंद करा</button>`
+                }
+                <button type="button" class="btn btn-sm btn-outline" style="padding: 3px 8px; border-color: #7c3aed; color: #6d28d9; font-weight: 700;" onclick="authEngine.adminChangeSchoolPassword('${s.udise}')" title="या शाळेचा पासवर्ड बदला किंवा रीसेट करा">🔑 पासवर्ड बदला</button>
+                <button type="button" class="btn btn-sm btn-danger" style="padding: 3px 8px; font-weight: 700; background: #dc2626;" onclick="authEngine.adminDeleteSchool('${s.udise}')" title="या शाळेचे खाते कायमचे हटवा">🗑️ शाळा हटवा</button>
               </div>
             </td>
           `;
 
           if (tbody) {
             const tr1 = document.createElement('tr');
+            tr1.setAttribute('data-udise', s.udise);
             tr1.innerHTML = makeRowHtml();
             tbody.appendChild(tr1);
           }
           if (tabTbody) {
             const tr2 = document.createElement('tr');
+            tr2.setAttribute('data-udise', s.udise);
             tr2.innerHTML = makeRowHtml();
             tabTbody.appendChild(tr2);
           }
@@ -4240,10 +4354,45 @@
         } catch(e) {}
       },
 
-      async adminDeleteSchool(udise, schoolName) {
+      async adminChangeSchoolPassword(udise, optionalName) {
         if (!udise) return;
         const cleanUdise = String(udise).trim().replace(/\s+/g, '');
-        const confirmMsg = `⚠️ सावधान! तुम्हाला शाळा "${schoolName || cleanUdise}" (UDISE: ${cleanUdise}) कायमची हटवायची (Delete) आहे का?\n\nया शाळेचा सर्व डेटा व खाते सर्व डेटाबेसवरून कायमचे नष्ट होईल!`;
+        const currentName = optionalName || this.getSchoolDisplayName(cleanUdise);
+        const newPwd = prompt(`शाळा "${currentName}" (UDISE: ${cleanUdise}) साठी नवीन पासवर्ड टाका:`);
+        if (!newPwd || newPwd.trim().length < 4) {
+          if (newPwd !== null) alert('पासवर्ड किमान ४ अक्षरांचा किंवा अंकांचा असावा!');
+          return;
+        }
+        const cleanPwd = newPwd.trim();
+        this.saveLocalSchoolAuth(cleanUdise, { udise: cleanUdise, passwordHash: cleanPwd, passwordUpdatedAt: new Date().toISOString() });
+        const endpoints = this.getAllEndpoints();
+        const promises = endpoints.map(ep => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          return Promise.allSettled([
+            fetch(`${ep}/schools/${cleanUdise}/auth.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ passwordHash: cleanPwd, passwordUpdatedAt: new Date().toISOString() }),
+              signal: controller.signal
+            }),
+            fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}/auth.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ passwordHash: cleanPwd, passwordUpdatedAt: new Date().toISOString() }),
+              signal: controller.signal
+            })
+          ]).finally(() => clearTimeout(timer));
+        });
+        await Promise.allSettled(promises);
+        showToast(`✅ शाळा ${cleanUdise} चा पासवर्ड यशस्वीरीत्या बदलला!`);
+      },
+
+      async adminDeleteSchool(udise, optionalName) {
+        if (!udise) return;
+        const cleanUdise = String(udise).trim().replace(/\s+/g, '');
+        const schoolName = optionalName || this.getSchoolDisplayName(cleanUdise);
+        const confirmMsg = `⚠️ सावधान! तुम्हाला शाळा "${schoolName}" (UDISE: ${cleanUdise}) कायमची हटवायची (Delete) आहे का?\n\nया शाळेचा सर्व डेटा व खाते सर्व डेटाबेसवरून कायमचे नष्ट होईल!`;
         if (!confirm(confirmMsg)) return;
 
         const pass = prompt('शाळा हटवण्यासाठी ॲडमिन पासवर्ड किंवा passkey (Ican@123) प्रविष्ट करा:');
@@ -4263,32 +4412,46 @@
           return;
         }
 
+        // 1. Instant optimistic DOM removal!
+        const rows = document.querySelectorAll(`tr[data-udise="${cleanUdise}"]`);
+        rows.forEach(r => r.remove());
+        if (this.adminSchoolsCache && this.adminSchoolsCache[cleanUdise]) {
+          delete this.adminSchoolsCache[cleanUdise];
+        }
+        this.updateAdminStats();
+
         showToast(`🗑️ शाळा ${cleanUdise} सर्व डेटाबेसवरून कायमची हटवत आहे...`);
 
-        // 1. Delete thoroughly from ALL database endpoints
+        // 2. Delete thoroughly from ALL database endpoints
         const endpoints = this.getAllEndpoints();
-        for (const ep of endpoints) {
+        const promises = endpoints.map(async ep => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
           try {
-            await fetch(`${ep}/schools/${cleanUdise}.json`, { method: 'DELETE' });
-            await fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}.json`, { method: 'DELETE' });
-            await fetch(`${ep}/cashbook_schools/${cleanUdise}.json`, { method: 'DELETE' });
-            await fetch(`${ep}/cashbook_backups/backup_${cleanUdise}.json`, { method: 'DELETE' });
-            await fetch(`${ep}/cashbook_backups/cashbook_${cleanUdise}_safety_backup.json`, { method: 'DELETE' });
-            // Add to deleted_schools marker so all devices know this school was wiped
-            await fetch(`${ep}/deleted_schools/${cleanUdise}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ udise: cleanUdise, deletedAt: new Date().toISOString() })
-            });
+            await Promise.allSettled([
+              fetch(`${ep}/schools/${cleanUdise}.json`, { method: 'DELETE', signal: controller.signal }),
+              fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}.json`, { method: 'DELETE', signal: controller.signal }),
+              fetch(`${ep}/cashbook_schools/${cleanUdise}.json`, { method: 'DELETE', signal: controller.signal }),
+              fetch(`${ep}/cashbook_backups/backup_${cleanUdise}.json`, { method: 'DELETE', signal: controller.signal }),
+              fetch(`${ep}/cashbook_backups/cashbook_${cleanUdise}_safety_backup.json`, { method: 'DELETE', signal: controller.signal }),
+              fetch(`${ep}/deleted_schools/${cleanUdise}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ udise: cleanUdise, deletedAt: new Date().toISOString() }),
+                signal: controller.signal
+              })
+            ]);
           } catch(e) {
-            console.warn('Error deleting school from endpoint:', ep, e);
+          } finally {
+            clearTimeout(timer);
           }
-        }
+        });
+        await Promise.allSettled(promises);
 
-        // 2. Delete from local storage cache on this device
+        // 3. Delete from local storage cache on this device
         this.deleteLocalSchoolAuth(cleanUdise);
 
-        // 3. If currently logged in as this deleted school, log out immediately
+        // 4. If currently logged in as this deleted school, log out immediately
         if (this.currentUser && String(this.currentUser.udise).trim().replace(/\s+/g, '') === cleanUdise) {
           this.currentUser = null;
           safeStorage.removeItem(this.SESSION_KEY);
@@ -4296,7 +4459,7 @@
           this.updateHeaderAuthUI();
         }
 
-        // 4. If the deleted school is currently opened in appData, reset to blank
+        // 5. If the deleted school is currently opened in appData, reset to blank
         if (appData && appData.schoolInfo && String(appData.schoolInfo.udise).trim().replace(/\s+/g, '') === cleanUdise) {
           appData = getDefaultData();
           saveData(true);
@@ -4304,7 +4467,6 @@
         }
 
         showToast(`🗑️ शाळा "${schoolName || cleanUdise}" यशस्वीरीत्या सर्व डेटाबेसवरून हटवण्यात आली!`);
-        await this.loadAndRenderAdminSchools();
       },
 
       async adminOpenSchool(udise) {
@@ -4313,7 +4475,7 @@
         closeModal('superAdminModal');
         showToast(`🔄 शाळा (${udise}) चे कॅश बुक उघडत आहे...`);
 
-        let sName = `शाळा (${udise})`;
+        let sName = this.getSchoolDisplayName(udise);
         if (cleanBaseUrl) {
           try {
             const sRes = await fetch(`${cleanBaseUrl}/schools/${udise}.json?t=${Date.now()}`, { cache: 'no-store' });
@@ -4345,43 +4507,104 @@
       },
 
       async adminApprove(udise) {
-        if (!confirm(`तुम्हाला शाळा ${udise} सक्रिय करायची आहे का?`)) return;
+        if (!udise) return;
+        const cleanUdise = String(udise).trim().replace(/\s+/g, '');
+        const sName = this.getSchoolDisplayName(cleanUdise);
+        if (!confirm(`तुम्हाला शाळा "${sName}" (UDISE: ${cleanUdise}) चा परवाना सक्रिय (Activate) करायचा आहे का?`)) return;
+
+        // 1. Instant Optimistic UI Update in 0ms!
+        this.updateSchoolLicenseUI(cleanUdise, 'ACTIVE');
+
+        // 2. Update session if this school is logged in
+        if (this.currentUser && String(this.currentUser.udise).trim() === cleanUdise) {
+          this.currentUser.licenseStatus = 'ACTIVE';
+          this.currentUser.validUntil = '2026-03-31';
+          this.saveSession();
+          this.updateHeaderAuthUI();
+        }
+
+        showToast(`⏳ शाळा ${cleanUdise} सक्रिय करत आहे...`);
+
+        const licensePayload = {
+          status: 'ACTIVE',
+          validUntil: '2026-03-31',
+          activatedYears: ['2024-25', '2025-26'],
+          approvedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // 3. Fast parallel sync across all endpoints with AbortController timeout
         const endpoints = this.getAllEndpoints();
-        for (const ep of endpoints) {
-          try {
-            await fetch(`${ep}/schools/${udise}/license.json`, {
+        const promises = endpoints.map(ep => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          return Promise.allSettled([
+            fetch(`${ep}/schools/${cleanUdise}/license.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'ACTIVE',
-                validUntil: '2026-03-31',
-                activatedYears: ['2024-25', '2025-26'],
-                approvedAt: new Date().toISOString()
-              })
-            });
-          } catch(e) {}
-        }
-        showToast(`✅ शाळा ${udise} यशस्वीरीत्या सक्रिय केली!`);
-        await this.loadAndRenderAdminSchools();
+              body: JSON.stringify(licensePayload),
+              signal: controller.signal
+            }),
+            fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}/license.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(licensePayload),
+              signal: controller.signal
+            })
+          ]).finally(() => clearTimeout(timer));
+        });
+
+        await Promise.allSettled(promises);
+        showToast(`✅ शाळा "${sName}" (UDISE: ${cleanUdise}) यशस्वीरीत्या सक्रिय केली!`);
       },
 
       async adminBlock(udise) {
-        if (!confirm(`तुम्हाला शाळा ${udise} तात्पुरती बंद (Block) करायची आहे का?`)) return;
+        if (!udise) return;
+        const cleanUdise = String(udise).trim().replace(/\s+/g, '');
+        const sName = this.getSchoolDisplayName(cleanUdise);
+        if (!confirm(`तुम्हाला शाळा "${sName}" (UDISE: ${cleanUdise}) चा परवाना तात्पुरता बंद (Block) करायचा आहे का?`)) return;
+
+        // 1. Instant Optimistic UI Update in 0ms!
+        this.updateSchoolLicenseUI(cleanUdise, 'BLOCKED');
+
+        // 2. Update session if this school is logged in
+        if (this.currentUser && String(this.currentUser.udise).trim() === cleanUdise) {
+          this.currentUser.licenseStatus = 'BLOCKED';
+          this.saveSession();
+          this.updateHeaderAuthUI();
+        }
+
+        showToast(`⏳ शाळा ${cleanUdise} बंद करत आहे...`);
+
+        const licensePayload = {
+          status: 'BLOCKED',
+          blockedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        // 3. Fast parallel sync across all endpoints with AbortController timeout
         const endpoints = this.getAllEndpoints();
-        for (const ep of endpoints) {
-          try {
-            await fetch(`${ep}/schools/${udise}/license.json`, {
+        const promises = endpoints.map(ep => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          return Promise.allSettled([
+            fetch(`${ep}/schools/${cleanUdise}/license.json`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'BLOCKED',
-                blockedAt: new Date().toISOString()
-              })
-            });
-          } catch(e) {}
-        }
-        showToast(`🔴 शाळा ${udise} बंद करण्यात आली.`);
-        await this.loadAndRenderAdminSchools();
+              body: JSON.stringify(licensePayload),
+              signal: controller.signal
+            }),
+            fetch(`${ep}/cashbook_schools/cashbook_${cleanUdise}/license.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(licensePayload),
+              signal: controller.signal
+            })
+          ]).finally(() => clearTimeout(timer));
+        });
+
+        await Promise.allSettled(promises);
+        showToast(`🔴 शाळा "${sName}" (UDISE: ${cleanUdise}) चा परवाना बंद करण्यात आला.`);
       }
     };
     window.authEngine = authEngine;
