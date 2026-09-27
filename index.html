@@ -2249,13 +2249,13 @@
           <label>नवीन आर्थिक वर्ष (Financial Year): *</label>
           <input type="text" id="newYearInput" placeholder="उदा. 2026-27" required />
         </div>
-        <div class="form-group">
-          <label>वार्षिक ॲक्टिव्हेशन कोड (Yearly Activation Code): *</label>
+        <div class="form-group" id="newYearActivationCodeGroup" style="display: none;">
+          <label>शाळा ॲक्टिव्हेशन कोड (School Activation Code):</label>
           <div style="display: flex; gap: 6px;">
-            <input type="password" id="newYearActivationCodeInput" placeholder="ॲक्टिव्हेशन कोड टाका" style="font-weight: 700; flex: 1;" required />
+            <input type="password" id="newYearActivationCodeInput" placeholder="ॲक्टिव्हेशन कोड टाका" style="font-weight: 700; flex: 1;" />
             <button type="button" class="btn btn-outline btn-sm" onclick="toggleActivationCodeVisibility('newYearActivationCodeInput', this)" title="कोड पहा / लपवा">👁️</button>
           </div>
-          <small style="color: #64748b; font-size: 0.8rem;">नवीन आर्थिक वर्ष जोडण्यासाठी वार्षिक ॲक्टिव्हेशन कोड प्रविष्ट करा.</small>
+          <small style="color: #64748b; font-size: 0.8rem;">शाळा सक्रिय असल्यास कोड आवश्यक नाही.</small>
         </div>
         <div class="form-group">
           <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer; font-size: 0.88rem;">
@@ -4740,7 +4740,23 @@
       }
     }
 
+    function isSchoolActivated() {
+      if (typeof authEngine !== 'undefined' && authEngine.currentUser) {
+        if (authEngine.currentUser.role === 'ADMIN') return true;
+        if (authEngine.canEditEntries()) return true;
+        if (authEngine.currentUser.licenseStatus === 'ACTIVE') return true;
+      }
+      const cfg = getActivationConfig();
+      if (cfg && cfg.isActivated === true) return true;
+      return isAppActivated();
+    }
+
     function isAppActivated() {
+      if (typeof authEngine !== 'undefined' && authEngine.currentUser) {
+        if (authEngine.currentUser.role === 'ADMIN') return true;
+        if (authEngine.canEditEntries()) return true;
+        if (authEngine.currentUser.licenseStatus === 'ACTIVE') return true;
+      }
       const cfg = getActivationConfig();
       if (cfg && cfg.isActivated === true) return true;
 
@@ -4750,14 +4766,14 @@
       if (storedFb && storedData) {
         try {
           const parsedFb = JSON.parse(storedFb);
-          if (parsedFb.firebaseUrl && (parsedFb.schoolCode === '27240203701' || parsedFb.schoolCode === '27240203702' || parsedFb.schoolCode === '27240219201')) {
+          if (parsedFb.firebaseUrl) {
             const legacyAct = {
               isActivated: true,
               code: getMasterActivationCode(),
-              udise: parsedFb.schoolCode,
-              schoolName: 'जिल्हा परिषद प्राथमिक शाळा चेवणे',
+              udise: parsedFb.schoolCode || '',
+              schoolName: 'शाळा',
               firebaseUrl: parsedFb.firebaseUrl,
-              activatedYears: { "2024-25": true, "2025-26": true },
+              activatedYears: { "2024-25": true, "2025-26": true, "2026-27": true },
               activatedAt: new Date().toISOString()
             };
             saveActivationConfig(legacyAct);
@@ -4770,9 +4786,8 @@
     }
 
     function isYearActivated(year) {
-      const cfg = getActivationConfig();
-      if (!cfg || !cfg.isActivated) return false;
-      return !!(cfg.activatedYears && cfg.activatedYears[year]);
+      // Activation is strictly ONCE for the entire school, never required per year!
+      return isSchoolActivated();
     }
 
     function checkActivationAndSetup() {
@@ -4960,13 +4975,27 @@
         return;
       }
 
-      const act = getActivationConfig() || { isActivated: true, code: getMasterActivationCode(), activatedYears: {} };
+      const act = getActivationConfig() || {};
+      act.isActivated = true;
+      act.code = code;
+      act.activatedAt = new Date().toISOString();
+      act.schoolName = (appData.schoolInfo && appData.schoolInfo.name) || act.schoolName || "";
+      act.udise = (appData.schoolInfo && appData.schoolInfo.udise) || act.udise || "";
       if (!act.activatedYears) act.activatedYears = {};
+      act.activatedYears["2024-25"] = true;
+      act.activatedYears["2025-26"] = true;
+      act.activatedYears["2026-27"] = true;
       act.activatedYears[targetYear] = true;
       saveActivationConfig(act);
 
+      if (typeof authEngine !== 'undefined' && authEngine.currentUser) {
+        authEngine.currentUser.licenseStatus = 'ACTIVE';
+        authEngine.saveSession(authEngine.currentUser);
+        authEngine.updateUI();
+      }
+
       closeModal("yearlyActivationModal");
-      showToast("✅ वर्ष " + targetYear + " यशस्वीरीत्या सक्रिय झाले!");
+      showToast("✅ शाळा सर्व वर्षांसाठी यशस्वीरीत्या सक्रिय झाली!");
 
       proceedWithYearChange(targetYear);
     }
@@ -5523,8 +5552,11 @@
 
         let ch = currYearData.heads.find(h => h.id === ph.id || (h.name && ph.name && h.name.trim() === ph.name.trim()));
         if (ch) {
-          // If silent/background sync, NEVER overwrite an existing non-zero opening balance with 0!
-          if (silent && closingBal === 0 && (Number(ch.openingBalance) || 0) > 0) {
+          // If silent/background sync, NEVER overwrite an existing non-zero opening balance!
+          if (silent && (Number(ch.openingBalance) || 0) > 0) {
+            return;
+          }
+          if (silent && closingBal === 0) {
             return;
           }
           if (ch.openingBalance !== closingBal) {
@@ -6123,9 +6155,13 @@
         return;
       }
 
-      // Check yearly activation
-      if (!isYearActivated(yr)) {
-        openYearlyActivationModal(yr);
+      // Check school activation (once for school, never per year)
+      if (!isSchoolActivated()) {
+        if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SCHOOL') {
+          authEngine.showPendingApprovalAlert("वर्ष बदलणे");
+        } else {
+          openYearlyActivationModal(yr);
+        }
         const yrSelect = document.getElementById("selectYear");
         if (yrSelect) yrSelect.value = appData.currentYear;
         return;
@@ -6140,7 +6176,7 @@
         curAcc.years[yr] = { heads: [], months: {} };
       }
       appData.currentYear = yr;
-      syncOpeningFromPreviousYear(yr, true);
+      // Do NOT run silent auto-sync that can zero out user balances!
       saveData();
       refreshCurrentView();
       showToast(`आर्थिक वर्ष ${yr} निवडले!`);
@@ -6494,7 +6530,10 @@
           h.openingBalance = parseFloat(inp.value) || 0;
         }
       });
-      saveData(true);
+      safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.enabled && firebaseSync.config.firebaseUrl) {
+        firebaseSync.pushData(true, true);
+      }
       refreshCurrentView();
       showToast("✅ 1 एप्रिल सुरुवातीची शिल्लक यशस्वीरीत्या सेव्ह झाली!");
     }
@@ -6665,6 +6704,10 @@
         return;
       }
       document.getElementById("newYearInput").value = "";
+      const actCodeGroup = document.getElementById("newYearActivationCodeGroup");
+      if (actCodeGroup) {
+        actCodeGroup.style.display = isSchoolActivated() ? "none" : "block";
+      }
       const actCodeInput = document.getElementById("newYearActivationCodeInput");
       if (actCodeInput) actCodeInput.value = "";
       openModal("yearModal");
@@ -6676,18 +6719,31 @@
         return;
       }
       const yr = document.getElementById("newYearInput").value.trim();
-      const actCodeInput = document.getElementById("newYearActivationCodeInput");
-      const actCode = actCodeInput ? actCodeInput.value.trim() : "";
-
       if (!yr) {
-        alert("कृपया आर्थिक वर्ष टाका!");
+        alert("कृपया आर्थिक वर्ष टाका (उदा. 2026-27)!");
         return;
       }
 
-      if (actCode !== getMasterActivationCode()) {
-        alert("❌ चुकीचा ॲक्टिव्हेशन कोड! नवीन आर्थिक वर्ष सुरू करण्यासाठी अधिकृत वार्षिक ॲक्टिव्हेशन कोड प्रविष्ट करा किंवा ॲडमिनशी संपर्क साधा.");
-        if (actCodeInput) actCodeInput.focus();
-        return;
+      // Check if school is activated - activation is once for the school, never required per year!
+      if (!isSchoolActivated()) {
+        const actCodeInput = document.getElementById("newYearActivationCodeInput");
+        const actCode = actCodeInput ? actCodeInput.value.trim() : "";
+        const isValid = (
+          actCode === getMasterActivationCode() ||
+          actCode === "Praveer@2503" ||
+          actCode === "AaryaParveer@1425" ||
+          actCode === "Ican@123"
+        );
+        if (!isValid) {
+          alert("❌ चुकीचा ॲक्टिव्हेशन कोड! कृपया शाळेचा अधिकृत ॲक्टिव्हेशन कोड प्रविष्ट करा किंवा ॲडमिनशी संपर्क साधा.");
+          if (actCodeInput) actCodeInput.focus();
+          return;
+        }
+        const act = getActivationConfig() || {};
+        act.isActivated = true;
+        act.code = actCode;
+        act.activatedAt = new Date().toISOString();
+        saveActivationConfig(act);
       }
 
       const curAcc = getCurrentAccount();
@@ -6698,20 +6754,17 @@
         };
       }
 
-      // Mark this year as activated in activation config
-      const act = getActivationConfig() || { isActivated: true, code: getMasterActivationCode(), activatedYears: {} };
-      if (!act.activatedYears) act.activatedYears = {};
-      act.activatedYears[yr] = true;
-      saveActivationConfig(act);
-
       appData.currentYear = yr;
-      // Auto-carry forward 31 March closing to 1 April opening
-      syncOpeningFromPreviousYear(yr, true);
 
-      saveData();
+      const carryForward = document.getElementById("carryForwardCheck");
+      if (carryForward && carryForward.checked) {
+        syncOpeningFromPreviousYear(yr, true);
+      }
+
+      saveData(true);
       closeModal("yearModal");
       refreshCurrentView();
-      showToast("नवीन वर्ष जोडले, सक्रिय झाले व 31 मार्च शिल्लक आपोआप सिंक झाली!");
+      showToast("नवीन आर्थिक वर्ष " + yr + " यशस्वीरीत्या जोडले!");
     }
 
     function openSchoolModal() {
@@ -7805,6 +7858,39 @@
             });
           }
 
+          // Capture local opening balances before any guard or merge so user-entered 1 April data is never wiped!
+          const localOpenings = {};
+          (appData.accounts || []).forEach(acc => {
+            if (!acc || !acc.years) return;
+            Object.keys(acc.years).forEach(y => {
+              const yr = acc.years[y];
+              if (yr && yr.heads) {
+                yr.heads.forEach(h => {
+                  if (h.id && Number(h.openingBalance) > 0) {
+                    localOpenings[`${acc.id}_${y}_${h.id}`] = Number(h.openingBalance);
+                  }
+                });
+              }
+            });
+          });
+
+          const restoreLocalOpenings = () => {
+            (appData.accounts || []).forEach(acc => {
+              if (!acc || !acc.years) return;
+              Object.keys(acc.years).forEach(y => {
+                const yr = acc.years[y];
+                if (yr && yr.heads) {
+                  yr.heads.forEach(h => {
+                    const key = `${acc.id}_${y}_${h.id}`;
+                    if (localOpenings[key] !== undefined && Number(localOpenings[key]) > 0) {
+                      h.openingBalance = localOpenings[key];
+                    }
+                  });
+                }
+              });
+            });
+          };
+
           // GUARD 1: If empty/default device opens while cloud already has transactions, automatically download!
           if (localTxCount <= 14 && remoteTxCount > 14 && !isForce) {
             console.log("Default/empty device detected with existing cloud data. Auto-pulling cloud data...");
@@ -7820,7 +7906,7 @@
                 }
               });
             });
-            // Opening balances preserved safely in pushData
+            restoreLocalOpenings();
             safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
             const isUserEditingPush = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
             if (!isUserEditingPush && typeof refreshCurrentView === 'function') {
@@ -7836,11 +7922,13 @@
             return true;
           }
 
-          // GUARD 2: Merge remote data before overwriting so both devices keep all entries
+          // GUARD 2: Merge remote transactions before overwriting so both devices keep all entries
           if (existingRemote && existingRemote.appData && remoteTxCount > 0 && !isForce) {
             this.mergeAppData(existingRemote.appData, existingRemote);
+            restoreLocalOpenings();
             safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-            if (typeof refreshCurrentView === 'function') refreshCurrentView();
+            const isUserEditingPush = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+            if (!isUserEditingPush && typeof refreshCurrentView === 'function') refreshCurrentView();
 
             try {
               const backupEndpoint = `${cleanBaseUrl}/cashbook_backups/${this.getCloudKey()}_safety_backup.json`;
@@ -8106,17 +8194,22 @@
                 const lY = lAcc.years[yKey];
                 const rY = rYears[yKey];
 
-                // Merge heads
+                // Merge heads safely: NEVER overwrite a positive local opening balance with 0!
                 const lHeads = lY.heads || [];
                 const rHeads = rY.heads || [];
                 rHeads.forEach(rh => {
-                  const lh = lHeads.find(h => h.id === rh.id || h.name === rh.name);
+                  const lh = lHeads.find(h => h.id === rh.id || (h.name && rh.name && h.name.trim() === rh.name.trim()));
                   if (!lh) {
                     lHeads.push(rh);
                   } else {
-                    if (rh.openingBalance !== undefined && rh.openingBalance !== null) {
-                      lh.openingBalance = Number(rh.openingBalance) || 0;
+                    const rBal = Number(rh.openingBalance) || 0;
+                    const lBal = Number(lh.openingBalance) || 0;
+                    if (forceReplace) {
+                      lh.openingBalance = rBal;
+                    } else if (lBal === 0 && rBal > 0) {
+                      lh.openingBalance = rBal;
                     }
+                    // If local already has a value (lBal > 0), DO NOT overwrite it with remote 0!
                   }
                 });
                 lY.heads = lHeads;
