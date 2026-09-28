@@ -2037,10 +2037,10 @@
         </p>
 
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-success" style="font-weight: 700; padding: 10px 16px;" onclick="firebaseSync.pushData(false)">
+          <button type="button" class="btn btn-success" style="font-weight: 700; padding: 10px 16px;" onclick="firebaseSync.pushData(false, true)">
             ☁️ आता क्लाऊडवर सेव्ह करा (Upload to Cloud)
           </button>
-          <button type="button" class="btn btn-primary" style="font-weight: 700; padding: 10px 16px; background: #2563eb; border-color: #1d4ed8;" onclick="firebaseSync.pullData(false)">
+          <button type="button" class="btn btn-primary" style="font-weight: 700; padding: 10px 16px; background: #2563eb; border-color: #1d4ed8;" onclick="firebaseSync.pullData(false, true)">
             📥 PC चा सर्व डेटा मोबाईलवर आणा (Full Cloud Sync)
           </button>
           <button type="button" class="btn btn-warning btn-sm" onclick="firebaseSync.restoreBackup()" title="मागील सुरक्षित क्लाऊड प्रत परत मिळवा">
@@ -4992,7 +4992,7 @@
 
       if (fbUrl && typeof firebaseSync !== 'undefined') {
         setTimeout(() => {
-          firebaseSync.pullData(false);
+          firebaseSync.pullData(false, true);
         }, 500);
       }
 
@@ -6592,7 +6592,14 @@
       const h = (yData.heads || []).find(x => x.id === headId);
       if (h) {
         h.openingBalance = parseFloat(val) || 0;
-        saveData();
+        // Save immediately to local storage without aggressive network blocking
+        safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        if (typeof firebaseSync !== 'undefined') {
+          firebaseSync.hasPendingChanges = true;
+          if (firebaseSync.scheduleDebouncedPush) {
+            firebaseSync.scheduleDebouncedPush();
+          }
+        }
         // Dynamically update total opening display without full re-render that resets focus/cursor
         let tot = 0;
         (yData.heads || []).forEach(item => {
@@ -6607,7 +6614,7 @@
       }
     }
 
-    function saveAllHeadsBalances() {
+    async function saveAllHeadsBalances() {
       const yData = getCurrentYearData();
       (yData.heads || []).forEach(h => {
         const inp = document.getElementById(`head_bal_${h.id}`);
@@ -6616,8 +6623,9 @@
         }
       });
       safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      showToast("💾 1 एप्रिल शिल्लक सेव्ह होत आहे...");
       if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.enabled && firebaseSync.config.firebaseUrl) {
-        firebaseSync.pushData(true, true);
+        await firebaseSync.pushData(true, true);
       }
       refreshCurrentView();
       showToast("✅ 1 एप्रिल सुरुवातीची शिल्लक यशस्वीरीत्या सेव्ह झाली!");
@@ -7508,7 +7516,7 @@
             }
             if (typeof showToast === 'function') showToast("🔗 1-Click मोबाईल Firebase सिंक सुरू झाले!");
             setTimeout(() => {
-              this.pullData(false);
+              this.pullData(false, true);
             }, 600);
           }
         } catch (e) {
@@ -7544,6 +7552,8 @@
         });
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
+            const isUserTyping = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+            if (isUserTyping || this.hasPendingChanges) return; // Do not pull over active edits!
             if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
               this.pullData(true);
             }
@@ -7556,46 +7566,56 @@
 
       startAutoPolling() {
         if (this.pollTimer) clearInterval(this.pollTimer);
-        // Periodic background poll every 12 seconds (with live license verification)
+        // Periodic background poll every 20 seconds (when user is idle and not typing)
         this.pollTimer = setInterval(() => {
+          const isUserTyping = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+          if (isUserTyping || this.hasPendingChanges) return; // Do not poll over active edits!
+
           if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
             this.pullData(true);
           }
           if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SCHOOL') {
             authEngine.syncCurrentUserLicenseFromCloud().catch(() => {});
           }
-        }, 12000);
+        }, 20000);
       },
 
       startFiveSecAutoSave() {
         if (this.fiveSecTimer) clearInterval(this.fiveSecTimer);
-        // Automatic local and cloud save every 5 seconds
+        // Automatic local and cloud save every 6 seconds
         this.fiveSecTimer = setInterval(() => {
           try {
+            const isUserTyping = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+            if (isUserTyping) return; // Wait until user stops typing
+
             const currentStr = JSON.stringify(appData);
             if (this.hasPendingChanges || (this._lastSavedJson && currentStr !== this._lastSavedJson)) {
               this._lastSavedJson = currentStr;
               safeStorage.setItem(STORAGE_KEY, currentStr);
               if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
-                this.hasPendingChanges = false;
                 this.pushData(true);
               }
             } else if (!this._lastSavedJson) {
               this._lastSavedJson = currentStr;
             }
           } catch(e) {}
-        }, 5000);
+        }, 6000);
       },
 
       scheduleDebouncedPush() {
-        if (this.isSyncing) return;
         if (!this.config.enabled || !this.config.firebaseUrl || !this.config.autoSync) return;
         if (this.debounceTimer) clearTimeout(this.debounceTimer);
         this.debounceTimer = setTimeout(() => {
+          const isUserTyping = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+          if (isUserTyping) {
+            // Postpone until user finishes typing
+            this.scheduleDebouncedPush();
+            return;
+          }
           if (!this.isSyncing && this.config.enabled && this.config.firebaseUrl) {
             this.pushData(true);
           }
-        }, 2500);
+        }, 2000);
       },
 
       getSchoolUdise() {
@@ -7944,14 +7964,19 @@
 
           // Capture local opening balances before any guard or merge so user-entered 1 April data is never wiped!
           const localOpenings = {};
+          let hasLocalOpenings = false;
           (appData.accounts || []).forEach(acc => {
             if (!acc || !acc.years) return;
             Object.keys(acc.years).forEach(y => {
               const yr = acc.years[y];
               if (yr && yr.heads) {
                 yr.heads.forEach(h => {
-                  if (h.id && Number(h.openingBalance) > 0) {
-                    localOpenings[`${acc.id}_${y}_${h.id}`] = Number(h.openingBalance);
+                  if (h.id && h.openingBalance !== undefined && h.openingBalance !== null && !isNaN(Number(h.openingBalance))) {
+                    const numBal = Number(h.openingBalance);
+                    localOpenings[`${acc.id}_${y}_${h.id}`] = numBal;
+                    if (numBal > 0) {
+                      hasLocalOpenings = true;
+                    }
                   }
                 });
               }
@@ -7966,7 +7991,7 @@
                 if (yr && yr.heads) {
                   yr.heads.forEach(h => {
                     const key = `${acc.id}_${y}_${h.id}`;
-                    if (localOpenings[key] !== undefined && Number(localOpenings[key]) > 0) {
+                    if (localOpenings[key] !== undefined) {
                       h.openingBalance = localOpenings[key];
                     }
                   });
@@ -7975,9 +8000,9 @@
             });
           };
 
-          // GUARD 1: If empty/default device opens while cloud already has transactions, automatically download!
-          if (localTxCount <= 14 && remoteTxCount > 14 && !isForce) {
-            console.log("Default/empty device detected with existing cloud data. Auto-pulling cloud data...");
+          // GUARD 1: Only if local is completely blank (0 tx, no opening balances) and remote has data, pull cloud data on unforced sync:
+          if (localTxCount === 0 && !hasLocalOpenings && remoteTxCount > 0 && !isForce && !this.hasPendingChanges) {
+            console.log("Completely blank device detected with existing cloud data. Auto-pulling cloud data...");
             appData = existingRemote.appData;
             if (existingRemote.schoolInfo) {
               appData.schoolInfo = Object.assign({}, appData.schoolInfo, existingRemote.schoolInfo);
@@ -8045,6 +8070,8 @@
           });
 
           if (pushRes.ok) {
+            this.hasPendingChanges = false;
+            this._lastSavedJson = JSON.stringify(appData);
             this.config.status = 'synced';
             this.config.lastSyncTime = payload.updatedAt;
             this.config.lastError = '';
@@ -8078,6 +8105,13 @@
           this.config.firebaseUrl = 'https://cashbook-mohapada-default-rtdb.firebaseio.com/';
         }
         this.config.enabled = true;
+
+        if (isSilent) {
+          const isUserTypingNow = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+          if (isUserTypingNow || this.hasPendingChanges) {
+            return true;
+          }
+        }
 
         // Auto-release stuck lock after 10 seconds
         if (this.isSyncing) {
@@ -8178,6 +8212,8 @@
             });
 
             let localTxCount = 0;
+            let hasLocalOpenings = false;
+            const localOpenings = {};
             (appData.accounts || []).forEach(acc => {
               if (!acc || !acc.years) return;
               Object.values(acc.years).forEach(yr => {
@@ -8187,16 +8223,51 @@
                   localTxCount += (Array.isArray(m.jama) ? m.jama.length : 0) + (Array.isArray(m.kharch) ? m.kharch.length : 0);
                 });
               });
+              Object.keys(acc.years).forEach(y => {
+                const yr = acc.years[y];
+                if (yr && yr.heads) {
+                  yr.heads.forEach(h => {
+                    if (h.id && h.openingBalance !== undefined && h.openingBalance !== null && !isNaN(Number(h.openingBalance))) {
+                      const numBal = Number(h.openingBalance);
+                      localOpenings[`${acc.id}_${y}_${h.id}`] = numBal;
+                      if (numBal > 0) {
+                        hasLocalOpenings = true;
+                      }
+                    }
+                  });
+                }
+              });
             });
 
-            // If forceReplace (on login), manual download, UDISE mismatch, or local has default dummy data (<= 14 tx) while remote has more:
-            if (forceReplace || !isSilent || localTxCount <= 14 || (appData && appData.schoolInfo && appData.schoolInfo.udise !== currentUdise)) {
+            const restoreLocalOpenings = () => {
+              (appData.accounts || []).forEach(acc => {
+                if (!acc || !acc.years) return;
+                Object.keys(acc.years).forEach(y => {
+                  const yr = acc.years[y];
+                  if (yr && yr.heads) {
+                    yr.heads.forEach(h => {
+                      const key = `${acc.id}_${y}_${h.id}`;
+                      if (localOpenings[key] !== undefined) {
+                        h.openingBalance = localOpenings[key];
+                      }
+                    });
+                  }
+                });
+              });
+            };
+
+            // If forceReplace (on login / manual button), UDISE mismatch, or local is completely blank (0 tx and 0 openings) while remote has data:
+            const isLocalBlank = (localTxCount === 0 && !hasLocalOpenings && remoteTxCount > 0);
+            if (forceReplace || isLocalBlank || (appData && appData.schoolInfo && appData.schoolInfo.udise !== currentUdise)) {
               appData = json.appData;
               if (json.schoolInfo) {
                 appData.schoolInfo = Object.assign({}, appData.schoolInfo, json.schoolInfo);
               }
             } else {
-              this.mergeAppData(json.appData, json, forceReplace);
+              this.mergeAppData(json.appData, json, false);
+              if (hasLocalOpenings) {
+                restoreLocalOpenings();
+              }
             }
 
             // Ensure all accounts and years are sanitized
