@@ -1,4 +1,4 @@
-﻿const http = require('http');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -50,7 +50,10 @@ const server = http.createServer((req, res) => {
     } else {
       res.writeHead(200, {
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       });
       res.end(content);
     }

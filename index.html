@@ -99,40 +99,103 @@
       flex-shrink: 0;
     }
 
-    /* ==================== GOLDEN CREATOR BADGE ==================== */
-    .creator-golden-badge {
-      display: inline-flex;
+    /* ==================== ROYAL GOLDEN CREATOR TOP BAR ==================== */
+    .creator-top-bar {
+      width: 100%;
+      background: linear-gradient(135deg, #78350f 0%, #b45309 25%, #d97706 50%, #f59e0b 75%, #b45309 100%);
+      border-bottom: 2px solid #fbbf24;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      padding: 5px 12px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    .creator-top-bar:hover {
+      background: linear-gradient(135deg, #92400e 0%, #d97706 25%, #fbbf24 50%, #d97706 75%, #92400e 100%);
+      box-shadow: 0 3px 12px rgba(217, 119, 6, 0.45);
+    }
+    .creator-top-content {
+      display: flex;
       align-items: center;
-      gap: 5px;
-      background: linear-gradient(135deg, rgba(217, 119, 6, 0.3) 0%, rgba(245, 158, 11, 0.45) 50%, rgba(180, 83, 9, 0.3) 100%);
-      border: 1.5px solid #fbbf24;
-      border-radius: 6px;
-      padding: 2px 10px;
-      margin-bottom: 3px;
-      color: #fef08a;
-      font-size: 0.82rem;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .creator-name-txt {
+      font-family: 'Noto Sans Devanagari', sans-serif;
+      font-size: 0.92rem;
       font-weight: 800;
+      color: #fffbeb;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 8px rgba(254, 240, 138, 0.6);
       letter-spacing: 0.4px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-      box-shadow: 0 0 10px rgba(251, 191, 36, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-      width: fit-content;
-      white-space: nowrap;
+    }
+    .gold-crown, .gold-sparkle {
+      font-size: 1.05rem;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+      animation: goldPulse 2.5s infinite ease-in-out;
+    }
+    .panjika-badge-pill {
+      background: #1e3a8a;
+      color: #fef08a;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1.5px 8px;
+      border-radius: 9999px;
+      border: 1px solid #fbbf24;
+      letter-spacing: 0.3px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+    @keyframes goldPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.9; }
+    }
+
+    /* Panjika Side Switcher (Mobile Ledger Navigation) */
+    .panjika-side-switcher {
+      display: none;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 10px;
+      gap: 4px;
+      margin-bottom: 12px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+    }
+    .panjika-switch-btn {
+      flex: 1;
+      padding: 9px 6px;
+      border: none;
+      background: transparent;
+      color: #475569;
+      font-weight: 700;
+      font-size: 0.84rem;
+      border-radius: 7px;
       cursor: pointer;
       transition: all 0.2s ease;
+      text-align: center;
+      white-space: nowrap;
+      user-select: none;
+      touch-action: manipulation;
     }
-    .creator-golden-badge:hover {
-      box-shadow: 0 0 14px rgba(251, 191, 36, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-      transform: translateY(-1px);
+    .panjika-switch-btn.active {
+      background: #ffffff;
+      color: #1e3a8a;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+      font-weight: 800;
     }
-    .creator-golden-badge .gold-sparkle {
-      color: #fde047;
-      font-size: 0.92rem;
-      filter: drop-shadow(0 0 4px #f59e0b);
-      animation: goldSparkleGlow 2.5s infinite ease-in-out;
+    #pBtnJama.active {
+      color: #065f46;
+      border-bottom: 3px solid #059669;
     }
-    @keyframes goldSparkleGlow {
-      0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-      50% { transform: scale(1.2) rotate(15deg); opacity: 0.9; }
+    #pBtnKharch.active {
+      color: #991b1b;
+      border-bottom: 3px solid #dc2626;
+    }
+    #pBtnDual.active {
+      color: #1e3a8a;
+      border-bottom: 3px solid #2563eb;
     }
 
     /* Gav Panjika Banner (Desktop & Mobile) */
@@ -929,13 +992,31 @@
         z-index: 100 !important;
         background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important;
         color: #ffffff !important;
-        padding: 7px 10px !important;
+        padding: 0 0 6px 0 !important;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+      }
+      .creator-top-bar {
+        padding: 4px 8px !important;
+      }
+      .creator-name-txt {
+        font-size: 0.82rem !important;
+        letter-spacing: 0.2px !important;
+      }
+      .gold-crown, .gold-sparkle {
+        font-size: 0.95rem !important;
+      }
+      .panjika-badge-pill {
+        font-size: 0.65rem !important;
+        padding: 1px 6px !important;
+      }
+      .panjika-side-switcher {
+        display: flex !important;
       }
       .nav-container {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 6px !important;
+        padding: 6px 10px 0 10px !important;
       }
 
       /* Tier 1: School Name on Left + School Edit & Cloud Sync on Right */
@@ -965,16 +1046,6 @@
         min-width: 0 !important;
         flex: 1 !important;
         overflow: hidden !important;
-      }
-      .creator-golden-badge {
-        font-size: 0.72rem !important;
-        padding: 1.5px 7px !important;
-        margin-bottom: 2px !important;
-        border-width: 1px !important;
-        letter-spacing: 0.2px !important;
-      }
-      .creator-golden-badge .gold-sparkle {
-        font-size: 0.8rem !important;
       }
       .brand-title {
         font-size: 0.92rem !important;
@@ -1424,11 +1495,87 @@
         display: none !important;
       }
 
-      /* 8. Tab 1 Heads table mobile styling */
-      #headsTableBody tr td input[type="number"] {
-        width: 100px !important;
-        font-size: 1rem !important;
-        padding: 4px 6px !important;
+      /* 8. Tab 1 Heads table mobile styling (Gav Panjika Namuna 1 Cards) */
+      .panjika-heads-table thead {
+        display: none !important;
+      }
+      .panjika-heads-table tbody,
+      .panjika-heads-table tfoot,
+      .panjika-head-row {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .panjika-head-row {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-left: 5px solid #2563eb !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
+        margin-bottom: 8px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+      .panjika-head-row td {
+        display: flex !important;
+        border: none !important;
+        padding: 0 !important;
+        align-items: center !important;
+      }
+      .panjika-head-row td.col-head-idx {
+        display: none !important;
+      }
+      .panjika-head-row td.col-head-name {
+        gap: 6px !important;
+      }
+      .panjika-head-row .head-title-txt {
+        font-size: 0.98rem !important;
+        color: #1e293b !important;
+        font-weight: 700 !important;
+      }
+      .panjika-head-row td.col-head-bal {
+        justify-content: space-between !important;
+        background: #f8fafc !important;
+        padding: 6px 10px !important;
+        border-radius: 6px !important;
+        border: 1px dashed #cbd5e1 !important;
+      }
+      .panjika-head-row .head-bal-label {
+        font-size: 0.82rem !important;
+        color: #475569 !important;
+        font-weight: 600 !important;
+      }
+      .panjika-head-row .panjika-head-input {
+        width: 110px !important;
+        text-align: right !important;
+        font-weight: 800 !important;
+        font-size: 1.05rem !important;
+        padding: 4px 8px !important;
+        border: 1.5px solid #93c5fd !important;
+        border-radius: 6px !important;
+        background: #ffffff !important;
+      }
+      .panjika-head-row td.col-head-actions {
+        justify-content: flex-end !important;
+        gap: 8px !important;
+      }
+      .panjika-heads-table tfoot tr {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 10px 12px !important;
+        border-radius: 8px !important;
+        background: #eff6ff !important;
+        border: 1.5px solid #bfdbfe !important;
+      }
+      .panjika-heads-table tfoot td {
+        border: none !important;
+        padding: 0 !important;
+      }
+      .panjika-heads-table tfoot td:last-child {
+        display: none !important;
       }
 
       /* 9. Mobile Floating Quick Add Bar */
@@ -1761,15 +1908,23 @@
 
   <!-- Top Navigation Bar -->
   <header class="navbar no-print">
+    <!-- 👑 ROYAL FULL-WIDTH GOLDEN CREATOR BANNER (TOP OF APP) 👑 -->
+    <div class="creator-top-bar" onclick="alert('✨ ॲप निर्मिती: श्री. गणेश विलास पष्टे\nमोहापाडा, खालापूर, जि. रायगड\nशाळा सादील खर्च व कॅश बुक व्यवस्थापन प्रणाली\nअधिकृत आवृत्ती: v2.5 गाव पंजीका');" title="अधिकृत सॉफ्टवेअर निर्मिती: श्री. गणेश विलास पष्टे">
+      <div class="creator-top-content">
+        <span class="gold-crown">👑</span>
+        <span class="gold-sparkle">✨</span>
+        <span class="creator-name-txt">ॲप निर्मिती: श्री. गणेश विलास पष्टे</span>
+        <span class="gold-sparkle">✨</span>
+        <span class="panjika-badge-pill">v2.5 गाव पंजीका</span>
+      </div>
+    </div>
+
     <div class="nav-container">
       <!-- Row 1: Brand & School Actions -->
       <div class="brand-row">
         <div class="brand-section" onclick="openSchoolModal()" title="शाळेची माहिती पहा किंवा संपादित करा">
           <div class="brand-icon">🏫</div>
           <div class="brand-text-container">
-            <div class="creator-golden-badge" onclick="event.stopPropagation(); alert('✨ ॲप निर्मिती: श्री. गणेश विलास पष्टे\nमोहापाडा, खालापूर, जि. रायगड\nशाळा सादील खर्च व कॅश बुक प्रणाली');" title="अधिकृत सॉफ्टवेअर निर्मिती: श्री. गणेश विलास पष्टे">
-              <span class="gold-sparkle">✨</span> ॲप निर्मिती: श्री. गणेश विलास पष्टे
-            </div>
             <div class="brand-title" id="displaySchoolName">शाळा सादील खर्च व कॅश बुक प्रणाली</div>
             <div class="brand-sub" id="displaySchoolSub">महाराष्ट्र प्राथमिक/माध्यमिक शाळा हिशोब</div>
           </div>
@@ -1869,6 +2024,20 @@
 
     <!-- ==================== TAB 1: 1 APRIL ROJI SHILLAK (HEADS & OPENING) ==================== -->
     <section id="tab-heads" class="tab-pane active">
+      <!-- Gav Panjika Namuna 1 Official Ribbon -->
+      <div class="panjika-banner">
+        <div class="panjika-banner-left">
+          <span class="panjika-badge-icon">🏛️</span>
+          <div>
+            <div class="panjika-banner-title">गाव पंजीका नमुना १ : हेडनिहाय १ एप्रिल सुरुवातीची शिल्लक</div>
+            <div class="panjika-banner-sub">वार्षिक आरंभ शिल्लक नोंदवही व खातेनिहाय वर्गीकरण (<span class="activeYearText"></span>)</div>
+          </div>
+        </div>
+        <div class="panjika-banner-right">
+          <span class="panjika-status-chip">📜 नमुना १ नोंदवही</span>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <div class="card-title">
@@ -1893,7 +2062,7 @@
         </p>
 
         <div class="table-responsive">
-          <table>
+          <table class="panjika-table panjika-heads-table">
             <thead>
               <tr style="background: #e2e8f0;">
                 <th style="width: 8%;">अ.क्र.</th>
@@ -2021,10 +2190,23 @@
         </div>
       </div>
 
+      <!-- Mobile Panjika Side Switcher (डावे पान - जमा / उजवे पान - खर्च) -->
+      <div class="panjika-side-switcher no-print" id="panjikaSideSwitcher">
+        <button type="button" class="panjika-switch-btn active" id="pBtnJama" onclick="switchPanjikaSide('jama')">
+          📗 जमा बाजू (Receipts)
+        </button>
+        <button type="button" class="panjika-switch-btn" id="pBtnKharch" onclick="switchPanjikaSide('kharch')">
+          📕 खर्च बाजू (Payments)
+        </button>
+        <button type="button" class="panjika-switch-btn" id="pBtnDual" onclick="switchPanjikaSide('dual')">
+          📖 दोन्ही बाजू (Dual)
+        </button>
+      </div>
+
       <!-- Dual Side Ledger View (समोरासमोर दोन बाजू) -->
       <div class="ledger-grid">
         <!-- JAMA COLUMN -->
-        <div class="ledger-col panjika-col">
+        <div class="ledger-col panjika-col" id="panjikaColJama">
           <div class="ledger-col-header jama">
             <span>📗 जमा बाजू (Receipts) - पंजीका डावे पान</span>
             <button class="btn btn-sm btn-success" onclick="openTransactionModal('jama')">
@@ -2057,7 +2239,7 @@
         </div>
 
         <!-- KHARCH COLUMN -->
-        <div class="ledger-col panjika-col">
+        <div class="ledger-col panjika-col" id="panjikaColKharch">
           <div class="ledger-col-header kharch">
             <span>📕 खर्च बाजू (Payments) - पंजीका उजवे पान</span>
             <button class="btn btn-sm btn-danger" onclick="openTransactionModal('kharch')">
@@ -6176,15 +6358,24 @@
         const amt = Number(h.openingBalance) || 0;
         tot += amt;
         const tr = document.createElement("tr");
+        tr.className = "panjika-head-row";
         tr.innerHTML = `
-          <td class="text-center">${idx + 1}</td>
-          <td><strong>${h.name}</strong></td>
-          <td class="text-right hw-num jama-num">
-            <input type="number" id="head_bal_${h.id}" value="${amt}" style="width: 120px; text-align: right; font-weight: bold; font-size: 1rem; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #ffffff;" oninput="updateHeadBalance('${h.id}', this.value)" onchange="updateHeadBalance('${h.id}', this.value)" /> /-
+          <td class="text-center col-head-idx"><span class="head-num-badge">${idx + 1}</span></td>
+          <td class="col-head-name">
+            <span class="head-icon" style="font-size: 1.1rem; margin-right: 4px;">📁</span>
+            <strong class="head-title-txt">${h.name}</strong>
           </td>
-          <td class="text-center">
-            <button class="btn btn-sm btn-outline" style="color: #2563eb; border-color: #93c5fd; padding: 4px 8px;" onclick="editHeadName('${h.id}')" title="नाव बदला">✏️</button>
-            <button class="btn btn-sm btn-outline" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px;" onclick="deleteHead('${h.id}')" title="हटवा">🗑️</button>
+          <td class="text-right hw-num jama-num col-head-bal">
+            <span class="head-bal-label">०१/०४ शिल्लक: </span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;">
+              <span style="font-weight: bold; color: #166534;">₹</span>
+              <input type="number" id="head_bal_${h.id}" value="${amt}" class="panjika-head-input" style="width: 120px; text-align: right; font-weight: bold; font-size: 1rem; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #ffffff;" oninput="updateHeadBalance('${h.id}', this.value)" onchange="updateHeadBalance('${h.id}', this.value)" />
+              <span style="color: #64748b; font-weight: bold;">/-</span>
+            </span>
+          </td>
+          <td class="text-center col-head-actions">
+            <button class="btn btn-sm btn-outline panjika-btn-edit" style="color: #2563eb; border-color: #93c5fd; padding: 4px 8px;" onclick="editHeadName('${h.id}')" title="नाव बदला">✏️ बदल</button>
+            <button class="btn btn-sm btn-outline panjika-btn-del" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px;" onclick="deleteHead('${h.id}')" title="हटवा">🗑️</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -6299,7 +6490,49 @@
       document.getElementById("monthAkshariNote").innerHTML = `
         <strong>अक्षरी नोंद:</strong> ${mObj.name} महिना अखेर खाते पुस्तकी शिल्लक रु. <strong>${akshariWords}</strong> पुढील व्यवहारासाठी शिल्लक आहेत.
       `;
+
+      if (typeof switchPanjikaSide === 'function') {
+        switchPanjikaSide(currentPanjikaSide || 'jama');
+      }
     }
+
+    // ==================== GAV PANJIKA MOBILE SIDE SWITCHER LOGIC ====================
+    let currentPanjikaSide = 'jama';
+    function switchPanjikaSide(mode) {
+      currentPanjikaSide = mode || 'jama';
+      const colJama = document.getElementById("panjikaColJama");
+      const colKharch = document.getElementById("panjikaColKharch");
+      const btnJ = document.getElementById("pBtnJama");
+      const btnK = document.getElementById("pBtnKharch");
+      const btnD = document.getElementById("pBtnDual");
+
+      if (btnJ) btnJ.classList.remove("active");
+      if (btnK) btnK.classList.remove("active");
+      if (btnD) btnD.classList.remove("active");
+
+      if (window.innerWidth <= 768) {
+        if (mode === 'kharch') {
+          if (btnK) btnK.classList.add("active");
+          if (colJama) colJama.style.display = "none";
+          if (colKharch) colKharch.style.display = "block";
+        } else if (mode === 'dual') {
+          if (btnD) btnD.classList.add("active");
+          if (colJama) colJama.style.display = "block";
+          if (colKharch) colKharch.style.display = "block";
+        } else {
+          // Default: jama
+          if (btnJ) btnJ.classList.add("active");
+          if (colJama) colJama.style.display = "block";
+          if (colKharch) colKharch.style.display = "none";
+        }
+      } else {
+        if (colJama) colJama.style.display = "";
+        if (colKharch) colKharch.style.display = "";
+      }
+    }
+    window.addEventListener("resize", function() {
+      switchPanjikaSide(currentPanjikaSide);
+    });
 
     // TAB 3: Register View
     function renderRegisterView() {
