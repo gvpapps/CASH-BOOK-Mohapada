@@ -2712,7 +2712,7 @@
           </div>
           <div class="form-group">
             <label>रक्कम (₹): *</label>
-            <input type="text" id="txAmount" placeholder="उदा. 500 किंवा ५००" required inputmode="decimal" />
+            <input type="text" id="txAmount" placeholder="उदा. 100.56 किंवा 500" required inputmode="decimal" />
           </div>
         </div>
 
@@ -3601,32 +3601,46 @@
         }
 
         // Control visibility of Firebase Tab, Admin Tab & activation card based on Super Admin login
+        const setImportantDisplay = (el, val) => {
+          if (!el) return;
+          if (el.style && typeof el.style.setProperty === 'function') {
+            el.style.setProperty('display', val, 'important');
+          } else if (el.style) {
+            el.style.display = val;
+          }
+        };
+        const safeToggleClass = (el, cls, cond) => {
+          if (!el || !el.classList) return;
+          if (typeof el.classList.toggle === 'function') {
+            el.classList.toggle(cls, cond);
+          }
+        };
         if (tabBtnFirebase) {
-          tabBtnFirebase.style.setProperty('display', isSuperAdmin ? 'inline-block' : 'none', 'important');
-          tabBtnFirebase.classList.toggle('is-admin-active', isSuperAdmin);
+          setImportantDisplay(tabBtnFirebase, isSuperAdmin ? 'inline-block' : 'none');
+          safeToggleClass(tabBtnFirebase, 'is-admin-active', isSuperAdmin);
         }
         if (mobileNavFirebase) {
-          mobileNavFirebase.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
-          mobileNavFirebase.classList.toggle('is-admin-active', isSuperAdmin);
+          setImportantDisplay(mobileNavFirebase, isSuperAdmin ? 'flex' : 'none');
+          safeToggleClass(mobileNavFirebase, 'is-admin-active', isSuperAdmin);
         }
         if (tabBtnAdmin) {
-          tabBtnAdmin.style.setProperty('display', isSuperAdmin ? 'inline-block' : 'none', 'important');
-          tabBtnAdmin.classList.toggle('is-admin-active', isSuperAdmin);
+          setImportantDisplay(tabBtnAdmin, isSuperAdmin ? 'inline-block' : 'none');
+          safeToggleClass(tabBtnAdmin, 'is-admin-active', isSuperAdmin);
         }
         if (mobileNavAdmin) {
-          mobileNavAdmin.style.setProperty('display', isSuperAdmin ? 'flex' : 'none', 'important');
-          mobileNavAdmin.classList.toggle('is-admin-active', isSuperAdmin);
+          setImportantDisplay(mobileNavAdmin, isSuperAdmin ? 'flex' : 'none');
+          safeToggleClass(mobileNavAdmin, 'is-admin-active', isSuperAdmin);
         }
         if (actAndFbCard) actAndFbCard.style.display = isSuperAdmin ? 'block' : 'none';
 
         // If regular school user was on Firebase or Admin tab, gracefully switch to heads tab
         if (!isSuperAdmin) {
           const activePane = document.getElementById('tab-firebase');
-          if (activePane && activePane.classList.contains('active')) {
+          if (activePane && activePane.classList && typeof activePane.classList.contains === 'function' && activePane.classList.contains('active')) {
             if (typeof switchTab === 'function') switchTab('heads');
           }
           const adminPane = document.getElementById('tab-admin');
-          if (adminPane && adminPane.classList.contains('active')) {
+          if (adminPane && adminPane.classList && typeof adminPane.classList.contains === 'function' && adminPane.classList.contains('active')) {
             if (typeof switchTab === 'function') switchTab('heads');
           }
         }
@@ -3911,7 +3925,7 @@
         // STRICT PASSWORD VERIFICATION:
         // Only accept the password set by the school OR admin master password
         const isSchoolPwdMatch = (schoolAuth.passwordHash && schoolAuth.passwordHash === pwd);
-        const isAdminMasterMatch = (pwd === adminPassword || pwd === 'AaryaParveer@1425');
+        const isAdminMasterMatch = (pwd === adminPassword || pwd === 'AaryaParveer@1425' || pwd === 'AaryaPraveer@1425' || pwd === 'Praveer@2503' || pwd.toLowerCase() === 'praveer@2503');
 
         if (!isSchoolPwdMatch && !isAdminMasterMatch) {
           this.showAuthError(`
@@ -4754,8 +4768,8 @@
         const tabTbody = document.getElementById('adminTabSchoolsTableBody');
         
         // Show loading placeholder only if table has no rows currently
-        if (tbody && !tbody.children.length) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
-        if (tabTbody && !tabTbody.children.length) tabTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
+        if (tbody && (!tbody.children || !tbody.children.length)) tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
+        if (tabTbody && (!tabTbody.children || !tabTbody.children.length)) tabTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #64748b;">🔄 शाळांची माहिती लोड होत आहे...</td></tr>';
 
         let allSchools = {};
 
@@ -5906,8 +5920,13 @@
     }
 
     function toMarathiNum(num) {
-      if (num === null || num === undefined || isNaN(num)) return "0";
-      return Math.round(num).toLocaleString('en-IN');
+      if (num === null || num === undefined || isNaN(num)) return "0.00";
+      const val = Number(num);
+      const rounded = Math.round((val + Number.EPSILON) * 100) / 100;
+      return rounded.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
     }
 
     function formatDisplayDate(dStr) {
@@ -5923,8 +5942,8 @@
     }
 
     function numberToMarathiWords(n) {
-      const num = Math.round(Number(n));
-      if (isNaN(num) || num === 0) return "शून्य रुपये मात्र";
+      const val = Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100;
+      if (isNaN(val) || val === 0) return "शून्य रुपये मात्र";
 
       const units = ["", "एक", "दोन", "तीन", "चार", "पाच", "सहा", "सात", "आठ", "नऊ", "दहा",
         "अकरा", "बारा", "तेरा", "चौदा", "पंधरा", "सोळा", "सतरा", "अठरा", "एकोणीस", "वीस",
@@ -5938,42 +5957,61 @@
         "एक्याण्णव", "ब्याण्णव", "त्र्याण्णव", "चौऱ्याण्णव", "पंच्याण्णव", "शहाण्णव", "सत्त्याण्णव", "अठ्ठ्याण्णव", "नव्व्याण्णव"
       ];
 
-      function convertBelowThousand(val) {
+      function convertBelowThousand(v) {
         let str = "";
-        if (val >= 100) {
-          const h = Math.floor(val / 100);
+        if (v >= 100) {
+          const h = Math.floor(v / 100);
           str += units[h] + "शे ";
-          val %= 100;
+          v %= 100;
         }
-        if (val > 0) {
-          str += units[val] + " ";
+        if (v > 0) {
+          str += units[v] + " ";
         }
         return str.trim();
       }
 
-      let words = "";
-      let remaining = num;
+      function convertRupees(num) {
+        let words = "";
+        let remaining = num;
+        if (remaining >= 10000000) {
+          const cr = Math.floor(remaining / 10000000);
+          words += convertBelowThousand(cr) + " कोटी ";
+          remaining %= 10000000;
+        }
+        if (remaining >= 100000) {
+          const lk = Math.floor(remaining / 100000);
+          words += convertBelowThousand(lk) + " लाख ";
+          remaining %= 100000;
+        }
+        if (remaining >= 1000) {
+          const th = Math.floor(remaining / 1000);
+          words += convertBelowThousand(th) + " हजार ";
+          remaining %= 1000;
+        }
+        if (remaining > 0) {
+          words += convertBelowThousand(remaining);
+        }
+        return words.trim();
+      }
 
-      if (remaining >= 10000000) {
-        const cr = Math.floor(remaining / 10000000);
-        words += convertBelowThousand(cr) + " कोटी ";
-        remaining %= 10000000;
+      const isNeg = val < 0;
+      const absVal = Math.abs(val);
+      const rupees = Math.floor(absVal);
+      const paise = Math.round((absVal - rupees) * 100);
+
+      let result = "";
+      if (rupees > 0) {
+        result += convertRupees(rupees) + " रुपये";
       }
-      if (remaining >= 100000) {
-        const lk = Math.floor(remaining / 100000);
-        words += convertBelowThousand(lk) + " लाख ";
-        remaining %= 100000;
-      }
-      if (remaining >= 1000) {
-        const th = Math.floor(remaining / 1000);
-        words += convertBelowThousand(th) + " हजार ";
-        remaining %= 1000;
-      }
-      if (remaining > 0) {
-        words += convertBelowThousand(remaining);
+      if (paise > 0) {
+        if (rupees > 0) {
+          result += " आणि " + units[paise] + " पैसे";
+        } else {
+          result += units[paise] + " पैसे";
+        }
       }
 
-      return words.trim() + " रुपये मात्र";
+      return (isNeg ? "(वजा) " : "") + result.trim() + " मात्र";
     }
 
     function calculateFullYearLedger(targetYear = null, targetAcc = null) {
@@ -5982,12 +6020,14 @@
       const yData = (curAcc && curAcc.years && curAcc.years[yr]) ? curAcc.years[yr] : { heads: [], months: {} };
       const heads = yData.heads || [];
 
+      const round2 = (num) => Math.round(((Number(num) || 0) + Number.EPSILON) * 100) / 100;
+
       let currentHeadBalances = {};
       let totalOpening = 0;
       heads.forEach(h => {
-        const b = Number(h.openingBalance) || 0;
+        const b = round2(h.openingBalance);
         currentHeadBalances[h.id] = b;
-        totalOpening += b;
+        totalOpening = round2(totalOpening + b);
       });
 
       const monthResults = {};
@@ -6002,23 +6042,23 @@
 
         let monthTotalJama = 0;
         (mData.jama || []).forEach(tx => {
-          const amt = Number(tx.amount) || 0;
-          monthTotalJama += amt;
+          const amt = round2(tx.amount);
+          monthTotalJama = round2(monthTotalJama + amt);
           if (tx.headId && currentHeadBalances[tx.headId] !== undefined) {
-            currentHeadBalances[tx.headId] += amt;
+            currentHeadBalances[tx.headId] = round2(currentHeadBalances[tx.headId] + amt);
           }
         });
 
         let monthTotalKharch = 0;
         (mData.kharch || []).forEach(tx => {
-          const amt = Number(tx.amount) || 0;
-          monthTotalKharch += amt;
+          const amt = round2(tx.amount);
+          monthTotalKharch = round2(monthTotalKharch + amt);
           if (tx.headId && currentHeadBalances[tx.headId] !== undefined) {
-            currentHeadBalances[tx.headId] -= amt;
+            currentHeadBalances[tx.headId] = round2(currentHeadBalances[tx.headId] - amt);
           }
         });
 
-        const closingForThisMonth = openingForThisMonth + monthTotalJama - monthTotalKharch;
+        const closingForThisMonth = round2(openingForThisMonth + monthTotalJama - monthTotalKharch);
         carriedTotalBalance = closingForThisMonth;
 
         monthResults[mNum] = {
@@ -6035,7 +6075,7 @@
       heads.forEach(h => {
         headAnnual[h.id] = {
           head: h,
-          opening: Number(h.openingBalance) || 0,
+          opening: round2(h.openingBalance),
           jama: 0,
           kharch: 0,
           closing: currentHeadBalances[h.id] || 0
@@ -6046,12 +6086,12 @@
         const mData = (yData.months && yData.months[m.num]) ? yData.months[m.num] : { jama: [], kharch: [] };
         (mData.jama || []).forEach(tx => {
           if (headAnnual[tx.headId]) {
-            headAnnual[tx.headId].jama += Number(tx.amount) || 0;
+            headAnnual[tx.headId].jama = round2(headAnnual[tx.headId].jama + (Number(tx.amount) || 0));
           }
         });
         (mData.kharch || []).forEach(tx => {
           if (headAnnual[tx.headId]) {
-            headAnnual[tx.headId].kharch += Number(tx.amount) || 0;
+            headAnnual[tx.headId].kharch = round2(headAnnual[tx.headId].kharch + (Number(tx.amount) || 0));
           }
         });
       });
@@ -6369,7 +6409,7 @@
             <span class="head-bal-label">०१/०४ शिल्लक: </span>
             <span style="display: inline-flex; align-items: center; gap: 4px;">
               <span style="font-weight: bold; color: #166534;">₹</span>
-              <input type="number" id="head_bal_${h.id}" value="${amt}" class="panjika-head-input" style="width: 120px; text-align: right; font-weight: bold; font-size: 1rem; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #ffffff;" oninput="updateHeadBalance('${h.id}', this.value)" onchange="updateHeadBalance('${h.id}', this.value)" />
+              <input type="number" step="any" id="head_bal_${h.id}" value="${amt}" class="panjika-head-input" style="width: 120px; text-align: right; font-weight: bold; font-size: 1rem; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #ffffff;" oninput="updateHeadBalance('${h.id}', this.value)" onchange="updateHeadBalance('${h.id}', this.value)" />
               <span style="color: #64748b; font-weight: bold;">/-</span>
             </span>
           </td>
@@ -6930,7 +6970,9 @@
         str = str.split(marathiDigits[i]).join(String(i));
       }
       str = str.replace(/[₹, \/\-]/g, '');
-      return parseFloat(str);
+      const parsed = parseFloat(str);
+      if (isNaN(parsed)) return NaN;
+      return Math.round((parsed + Number.EPSILON) * 100) / 100;
     }
 
     function normalizeDateInput(dStr) {
@@ -7161,7 +7203,7 @@
       const yData = getCurrentYearData();
       const h = (yData.heads || []).find(x => x.id === headId);
       if (h) {
-        h.openingBalance = parseFloat(val) || 0;
+        h.openingBalance = Math.round(((parseFloat(val) || 0) + Number.EPSILON) * 100) / 100;
         // Save immediately to local storage without aggressive network blocking
         safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         if (typeof firebaseSync !== 'undefined') {
@@ -7173,7 +7215,7 @@
         // Dynamically update total opening display without full re-render that resets focus/cursor
         let tot = 0;
         (yData.heads || []).forEach(item => {
-          tot += (Number(item.openingBalance) || 0);
+          tot = Math.round((tot + (Number(item.openingBalance) || 0) + Number.EPSILON) * 100) / 100;
         });
         const totEl = document.getElementById("headsTotalOpening");
         if (totEl) totEl.innerText = `₹ ${toMarathiNum(tot)} /-`;
@@ -7189,7 +7231,7 @@
       (yData.heads || []).forEach(h => {
         const inp = document.getElementById(`head_bal_${h.id}`);
         if (inp) {
-          h.openingBalance = parseFloat(inp.value) || 0;
+          h.openingBalance = Math.round(((parseFloat(inp.value) || 0) + Number.EPSILON) * 100) / 100;
         }
       });
       safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
