@@ -2491,6 +2491,14 @@
             <label style="font-weight: 700; color: #1e3a8a;">🏫 शाळा UDISE क्रमांक / मोड:</label>
             <input type="text" id="fbSchoolCodeInput" placeholder="उदा. 27240219201" style="font-weight: 800; color: #1e3a8a; border: 1.5px solid #94a3b8;" />
             <small style="color: #64748b;">(या UDISE क्रमांकावर डेटा क्लाऊडवर सुरक्षित ठेवला जातो)</small>
+            <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="firebaseSync.switchSchoolQuick('27240219201')" style="font-size: 0.8rem; padding: 4px 10px; font-weight: 700; border-color: #2563eb; color: #1d4ed8;">
+                🏫 रा जि प शाळा मोहपाडा (27240219201)
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="firebaseSync.switchSchoolQuick('27240215802')" style="font-size: 0.8rem; padding: 4px 10px; font-weight: 700; border-color: #16a34a; color: #15803d;">
+                🏫 रा. जि. प. शाळा ऐनाचीवाडी (27240215802)
+              </button>
+            </div>
           </div>
           <div class="form-group">
             <label>Google Firebase Realtime Database URL: *</label>
@@ -3955,23 +3963,34 @@
         const dd = document.getElementById('userAuthDropdown');
         if (dd) dd.style.display = 'none';
 
+        // Save previous school data before switching
+        if (typeof saveData === 'function') {
+          saveData();
+        }
+
         // Switch Firebase schoolCode & AUTO-DOWNLOAD latest cloud data FIRST
         if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
           firebaseSync.config.schoolCode = matchedUdise;
           firebaseSync.saveConfig();
-          if (firebaseSync.config.firebaseUrl) {
-            showToast(`🔄 ${this.currentUser.name} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
-            try {
-              await firebaseSync.pullData(true, true);
-            } catch(e) {}
-          }
+        }
+
+        // Load local storage scoped to matchedUdise first
+        if (typeof loadData === 'function') {
+          loadData(matchedUdise);
+        }
+
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
+          showToast(`🔄 ${this.currentUser.name} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
+          try {
+            await firebaseSync.pullData(true, true);
+          } catch(e) {}
         }
 
         // Update School Info in App Data after pull
         if (appData && appData.schoolInfo) {
           appData.schoolInfo.udise = matchedUdise;
           if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
-          safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          saveData();
         }
 
         refreshCurrentView();
@@ -4426,6 +4445,10 @@
         this.currentUser = null;
         safeStorage.setItem('CASHBOOK_EXPLICIT_LOGOUT', 'true');
         this.saveSession();
+        appData = getDefaultData();
+        if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
+          firebaseSync.config.schoolCode = '';
+        }
         const dd = document.getElementById('userAuthDropdown');
         if (dd) dd.style.display = 'none';
         refreshCurrentView();
@@ -5611,6 +5634,72 @@
 
     const STORAGE_KEY = "MAHA_SCHOOL_CASHBOOK_APP_V3";
 
+    function getActiveSchoolUdise() {
+      if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.udise && authEngine.currentUser.udise !== 'ADMIN') {
+        return String(authEngine.currentUser.udise).trim();
+      }
+      if (typeof appData !== 'undefined' && appData && appData.schoolInfo && appData.schoolInfo.udise) {
+        return String(appData.schoolInfo.udise).trim();
+      }
+      if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.schoolCode) {
+        return String(firebaseSync.config.schoolCode).trim();
+      }
+      return '';
+    }
+
+    function getSchoolStorageKey(udise = null) {
+      const u = (udise || getActiveSchoolUdise() || '').trim();
+      return u ? `MAHA_SCHOOL_CASHBOOK_APP_${u}` : 'MAHA_SCHOOL_CASHBOOK_APP_GUEST';
+    }
+
+    function syncAccountHeadsAcrossYears(acc) {
+      if (!acc || !acc.years) return;
+      acc.deletedHeadIds = Array.isArray(acc.deletedHeadIds) ? acc.deletedHeadIds : [];
+
+      // 1. Collect all unique active heads across all years of this account (ignoring deleted ones)
+      const masterHeads = [];
+      const seenIds = new Set();
+      const seenNames = new Set();
+
+      Object.keys(acc.years).forEach(y => {
+        const yr = acc.years[y];
+        if (!yr || !yr.heads) return;
+        // Clean out any deleted heads
+        yr.heads = yr.heads.filter(h => h && h.id && !acc.deletedHeadIds.includes(h.id));
+        yr.heads.forEach(h => {
+          if (!h || !h.id || !h.name) return;
+          const cleanName = h.name.trim();
+          if (!seenIds.has(h.id) && !seenNames.has(cleanName)) {
+            seenIds.add(h.id);
+            seenNames.add(cleanName);
+            masterHeads.push({ id: h.id, name: cleanName });
+          }
+        });
+      });
+
+      // 2. Propagate master heads to every year in this account
+      Object.keys(acc.years).forEach(y => {
+        const yr = acc.years[y];
+        if (!yr) return;
+        yr.heads = yr.heads || [];
+        yr.heads = yr.heads.filter(h => h && h.id && !acc.deletedHeadIds.includes(h.id));
+
+        masterHeads.forEach(mh => {
+          const existing = yr.heads.find(h => h.id === mh.id || (h.name && h.name.trim() === mh.name));
+          if (!existing) {
+            yr.heads.push({
+              id: mh.id,
+              name: mh.name,
+              openingBalance: 0
+            });
+          } else {
+            existing.id = mh.id;
+            existing.name = mh.name;
+          }
+        });
+      });
+    }
+
     function getDefaultData() {
       return {
         schoolInfo: {
@@ -5791,41 +5880,38 @@
       return;
     }
 
-    function loadData() {
+    function loadData(targetUdise = null) {
+      const u = (targetUdise || getActiveSchoolUdise() || '').trim();
+      const key = getSchoolStorageKey(u);
       try {
-        const stored = safeStorage.getItem(STORAGE_KEY);
+        const stored = (u ? safeStorage.getItem(key) : null) || (u ? safeStorage.getItem(`CASHBOOK_DATA_${u}`) : null) || safeStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
-          purgeChevaneLegacyDemoData(parsed);
-          appData = parsed;
-        }
-      } catch(e) {}
-
-      try {
-        const stored = safeStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          appData = JSON.parse(stored);
+          if (!u || !parsed.schoolInfo || !parsed.schoolInfo.udise || parsed.schoolInfo.udise === u) {
+            appData = parsed;
+          } else {
+            appData = parsed;
+            if (u && (!appData.schoolInfo || !appData.schoolInfo.udise)) {
+              appData.schoolInfo = appData.schoolInfo || {};
+              appData.schoolInfo.udise = u;
+            }
+          }
         } else {
-          const prev = safeStorage.getItem("MAHA_SCHOOL_CASHBOOK_APP_V2");
-          if (prev) {
-            appData = JSON.parse(prev);
-            if (appData.currentYear === "२०२४-२५") appData.currentYear = "2024-25";
-            appData.accounts.forEach(a => {
-              if (a.years["२०२४-२५"]) {
-                a.years["2024-25"] = a.years["२०२४-२५"];
-                delete a.years["२०२४-२५"];
-              }
-            });
-            saveData();
+          appData = getDefaultData();
+          if (u) {
+            appData.schoolInfo.udise = u;
+            if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.name) {
+              appData.schoolInfo.name = authEngine.currentUser.name;
+            }
           }
         }
       } catch (e) {
         console.error("Error loading stored data:", e);
+        appData = getDefaultData();
       }
 
       if (!appData || !appData.accounts || appData.accounts.length === 0) {
         appData = getDefaultData();
-        saveData();
       }
 
       if (!appData.accounts.find(a => a.id === appData.currentAccountId)) {
@@ -5842,20 +5928,20 @@
         appData.currentMonth = 4;
       }
 
-      // Ensure 2024-25 and 2025-26 are always initialized across all accounts
+      // Ensure 2023-24, 2024-25 and 2025-26 are always initialized across all accounts
       (appData.accounts || []).forEach(a => {
         if (!a) return;
         if (!a.years) a.years = {};
+        if (!a.years["2023-24"]) a.years["2023-24"] = { heads: [], months: {} };
         if (!a.years["2024-25"]) a.years["2024-25"] = { heads: [], months: {} };
         if (!a.years["2025-26"]) a.years["2025-26"] = { heads: [], months: {} };
         Object.keys(a.years).forEach(y => {
           if (a.years[y]) a.years[y].months = sanitizeMonths(a.years[y].months);
         });
+        syncAccountHeadsAcrossYears(a);
       });
-      // Opening balances preserved safely
     }
 
-    
     function resOkFallback(results) {
       if (!Array.isArray(results)) return false;
       return results.some(r => r.status === 'fulfilled' && r.value && (r.value.ok || r.value.status === 200));
@@ -5863,6 +5949,8 @@
 
     function saveData(immediateSync = false) {
       try {
+        const key = getSchoolStorageKey();
+        safeStorage.setItem(key, JSON.stringify(appData));
         safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
       } catch (e) {
         console.error("Failed to save data:", e);
@@ -6362,6 +6450,9 @@
     // TAB 1 RENDERER: 1 April Shillak
     function renderHeadsTab() {
       const curAcc = getCurrentAccount();
+      if (curAcc && typeof syncAccountHeadsAcrossYears === 'function') {
+        syncAccountHeadsAcrossYears(curAcc);
+      }
       const prevYr = getPreviousFinancialYear(appData.currentYear, curAcc);
       const bannerEl = document.getElementById("prevYearCarryBanner");
 
@@ -6871,6 +6962,9 @@
         curAcc.years[yr] = { heads: [], months: {} };
       }
       appData.currentYear = yr;
+      if (typeof syncAccountHeadsAcrossYears === 'function') {
+        syncAccountHeadsAcrossYears(curAcc);
+      }
       // Do NOT run silent auto-sync that can zero out user balances!
       saveData();
       refreshCurrentView();
@@ -7172,29 +7266,66 @@
       }
       const editId = document.getElementById("editHeadId").value;
       const name = document.getElementById("newHeadName").value.trim();
-      const bal = parseFloat(document.getElementById("newHeadBalance").value) || 0;
+      const bal = Math.round(((parseFloat(document.getElementById("newHeadBalance").value) || 0) + Number.EPSILON) * 100) / 100;
 
       if (!name) {
         alert("कृपया हेडचे नाव भरा!");
         return;
       }
 
+      const curAcc = getCurrentAccount();
       const yData = getCurrentYearData();
       if (editId) {
+        if (curAcc && curAcc.years) {
+          Object.keys(curAcc.years).forEach(y => {
+            const yr = curAcc.years[y];
+            if (yr && Array.isArray(yr.heads)) {
+              const yh = yr.heads.find(x => x.id === editId);
+              if (yh) {
+                yh.name = name;
+              }
+            }
+          });
+        }
         const h = yData.heads.find(x => x.id === editId);
         if (h) {
           h.name = name;
           h.openingBalance = bal;
         }
+        if (curAcc && Array.isArray(curAcc.deletedHeadIds)) {
+          curAcc.deletedHeadIds = curAcc.deletedHeadIds.filter(id => id !== editId);
+        }
       } else {
+        const newHeadId = "h_" + Date.now();
         yData.heads.push({
-          id: "h_" + Date.now(),
+          id: newHeadId,
           name: name,
           openingBalance: bal
         });
+        if (curAcc && curAcc.years) {
+          Object.keys(curAcc.years).forEach(y => {
+            if (y === appData.currentYear) return;
+            const yr = curAcc.years[y];
+            if (yr) {
+              yr.heads = yr.heads || [];
+              if (!yr.heads.some(x => x.id === newHeadId)) {
+                yr.heads.push({
+                  id: newHeadId,
+                  name: name,
+                  openingBalance: 0
+                });
+              }
+            }
+          });
+        }
       }
 
-      saveData(true); closeModal("headModal");
+      if (curAcc && typeof syncAccountHeadsAcrossYears === 'function') {
+        syncAccountHeadsAcrossYears(curAcc);
+      }
+
+      saveData(true);
+      closeModal("headModal");
       refreshCurrentView();
       showToast("हेड सेव्ह झाले!");
     }
@@ -7205,7 +7336,7 @@
       if (h) {
         h.openingBalance = Math.round(((parseFloat(val) || 0) + Number.EPSILON) * 100) / 100;
         // Save immediately to local storage without aggressive network blocking
-        safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        saveData();
         if (typeof firebaseSync !== 'undefined') {
           firebaseSync.hasPendingChanges = true;
           if (firebaseSync.scheduleDebouncedPush) {
@@ -7234,7 +7365,7 @@
           h.openingBalance = Math.round(((parseFloat(inp.value) || 0) + Number.EPSILON) * 100) / 100;
         }
       });
-      safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      saveData();
       showToast("💾 1 एप्रिल शिल्लक सेव्ह होत आहे...");
       if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.enabled && firebaseSync.config.firebaseUrl) {
         await firebaseSync.pushData(true, true);
@@ -7249,9 +7380,26 @@
         return;
       }
       if (!confirm("हे हेड हटवायचे आहे का? यामुळे या हेडच्या सर्व नोंदींचा ताळेबंद बदलेल.")) return;
+      const curAcc = getCurrentAccount();
+      if (curAcc) {
+        curAcc.deletedHeadIds = Array.isArray(curAcc.deletedHeadIds) ? curAcc.deletedHeadIds : [];
+        if (!curAcc.deletedHeadIds.includes(headId)) {
+          curAcc.deletedHeadIds.push(headId);
+        }
+        if (curAcc.years) {
+          Object.keys(curAcc.years).forEach(y => {
+            const yr = curAcc.years[y];
+            if (yr && Array.isArray(yr.heads)) {
+              yr.heads = yr.heads.filter(x => x.id !== headId);
+            }
+          });
+        }
+      }
       const yData = getCurrentYearData();
-      yData.heads = yData.heads.filter(x => x.id !== headId);
-      saveData();
+      if (yData && Array.isArray(yData.heads)) {
+        yData.heads = yData.heads.filter(x => x.id !== headId);
+      }
+      saveData(true);
       refreshCurrentView();
       showToast("हेड हटवण्यात आले!");
     }
@@ -8111,9 +8259,13 @@
           if (params.has('udise')) {
             const code = decodeURIComponent(params.get('udise')).trim();
             if (code) {
+              const prev = this.getSchoolUdise();
+              if (prev && prev !== code) {
+                if (typeof saveData === 'function') saveData();
+              }
               this.config.schoolCode = code;
-              if (appData && appData.schoolInfo) {
-                appData.schoolInfo.udise = code;
+              if (typeof loadData === 'function') {
+                loadData(code);
               }
               changed = true;
             }
@@ -8122,7 +8274,11 @@
           if (changed) {
             this.config.lastError = '';
             this.saveConfig();
-            safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            if (typeof saveData === 'function') {
+              saveData();
+            } else {
+              safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            }
             if (window.history && window.history.replaceState) {
               window.history.replaceState({}, document.title, window.location.pathname);
             }
@@ -8203,7 +8359,11 @@
             const currentStr = JSON.stringify(appData);
             if (this.hasPendingChanges || (this._lastSavedJson && currentStr !== this._lastSavedJson)) {
               this._lastSavedJson = currentStr;
-              safeStorage.setItem(STORAGE_KEY, currentStr);
+              if (typeof saveData === 'function') {
+                saveData();
+              } else {
+                safeStorage.setItem(STORAGE_KEY, currentStr);
+              }
               if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
                 this.pushData(true);
               }
@@ -8360,7 +8520,11 @@
 
       copyMobileShareLink() {
         const url = this.config.firebaseUrl || "https://cashbook-mohapada-default-rtdb.firebaseio.com/";
-        const code = this.getSchoolUdise() || "27240219201";
+        const code = this.getSchoolUdise() || (appData && appData.schoolInfo && appData.schoolInfo.udise) || "";
+        if (!code) {
+          alert("कृपया प्रथम शाळेचा UDISE कोड टाका किंवा शाळेत लॉगिन करा!");
+          return;
+        }
         if (!url) {
           alert("कृपया प्रथम Firebase Database URL प्रविष्ट करा व सेव्ह करा!");
           return;
@@ -8453,6 +8617,7 @@
         }
 
         const cleanUrl = fbUrl.replace(/\/$/, '') + '/';
+        const prevSchool = this.getSchoolUdise();
 
         this.config.enabled = true;
         this.config.schoolCode = code;
@@ -8461,16 +8626,56 @@
         this.config.lastError = '';
         this.saveConfig();
 
+        if (prevSchool && prevSchool !== code) {
+          // School has changed!
+          // 1. Save previous school data to its own storage key
+          saveData();
+          // 2. Load storage for the newly selected school
+          loadData(code);
+          // 3. Immediately pull cloud data for the new school
+          showToast(`🔄 शाळा ${code} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
+          await this.pullData(false, true);
+          refreshCurrentView();
+          alert(`✅ शाळा UDISE: ${code} यशस्वीरीत्या निवडली व डेटा क्लाऊडवरून सिंक झाला!`);
+          return;
+        }
+
         if (typeof appData !== 'undefined' && appData) {
           if (!appData.schoolInfo) appData.schoolInfo = {};
           appData.schoolInfo.udise = code;
-          safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          saveData();
           if (typeof renderHeaderInfo === 'function') renderHeaderInfo();
           if (typeof renderSchoolInfoCard === 'function') renderSchoolInfoCard();
         }
 
         if (typeof showToast === 'function') showToast('⚙️ Firebase सेटिंग्ज जतन झाल्या!');
         await this.pushData(false);
+      },
+
+      async switchSchoolQuick(targetUdise) {
+        if (!targetUdise) return;
+        const cur = this.getSchoolUdise();
+        if (cur === targetUdise) {
+          showToast(`शाळा ${targetUdise} आधीच चालू आहे!`);
+          return;
+        }
+        if (!confirm(`तुम्हाला शाळा बदलून UDISE: ${targetUdise} चा डेटा उघडायचा आहे का?`)) {
+          return;
+        }
+        // 1. Save current school data safely
+        saveData();
+        // 2. Switch school in config
+        this.config.schoolCode = targetUdise;
+        this.saveConfig();
+        const codeInput = document.getElementById('fbSchoolCodeInput');
+        if (codeInput) codeInput.value = targetUdise;
+        // 3. Load storage for new school
+        loadData(targetUdise);
+        // 4. Force pull clean data from cloud
+        showToast(`🔄 शाळा ${targetUdise} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
+        await this.pullData(false, true);
+        refreshCurrentView();
+        alert(`✅ शाळा ${targetUdise} चा डेटा यशस्वीरीत्या उघडला व सिंक झाला!`);
       },
 
       disableSync() {
@@ -8530,6 +8735,16 @@
           return false;
         }
 
+        // HARD MULTI-TENANT GUARD: never push if local appData school UDISE does not match target currentUdise!
+        const localSchoolUdise = (appData && appData.schoolInfo && appData.schoolInfo.udise) ? String(appData.schoolInfo.udise).trim() : '';
+        if (localSchoolUdise && localSchoolUdise !== currentUdise) {
+          console.warn(`Blocked pushData: local appData udise (${localSchoolUdise}) does not match target schoolCode (${currentUdise})!`);
+          this.isSyncing = false;
+          this.config.status = 'idle';
+          this.updateUIStatus();
+          return false;
+        }
+
         this.config.status = 'syncing';
         this.updateUIStatus();
 
@@ -8574,8 +8789,6 @@
             });
           }
 
-          // Capture local opening balances before any guard or merge so user-entered 1 April data is never wiped!
-          const localOpenings = {};
           let hasLocalOpenings = false;
           (appData.accounts || []).forEach(acc => {
             if (!acc || !acc.years) return;
@@ -8583,34 +8796,13 @@
               const yr = acc.years[y];
               if (yr && yr.heads) {
                 yr.heads.forEach(h => {
-                  if (h.id && h.openingBalance !== undefined && h.openingBalance !== null && !isNaN(Number(h.openingBalance))) {
-                    const numBal = Number(h.openingBalance);
-                    localOpenings[`${acc.id}_${y}_${h.id}`] = numBal;
-                    if (numBal > 0) {
-                      hasLocalOpenings = true;
-                    }
+                  if (h && (Number(h.openingBalance) || 0) !== 0) {
+                    hasLocalOpenings = true;
                   }
                 });
               }
             });
           });
-
-          const restoreLocalOpenings = () => {
-            (appData.accounts || []).forEach(acc => {
-              if (!acc || !acc.years) return;
-              Object.keys(acc.years).forEach(y => {
-                const yr = acc.years[y];
-                if (yr && yr.heads) {
-                  yr.heads.forEach(h => {
-                    const key = `${acc.id}_${y}_${h.id}`;
-                    if (localOpenings[key] !== undefined) {
-                      h.openingBalance = localOpenings[key];
-                    }
-                  });
-                }
-              });
-            });
-          };
 
           // GUARD 1: Only if local is completely blank (0 tx, no opening balances) and remote has data, pull cloud data on unforced sync:
           if (localTxCount === 0 && !hasLocalOpenings && remoteTxCount > 0 && !isForce && !this.hasPendingChanges) {
@@ -8626,9 +8818,11 @@
                   a.years[y].months = sanitizeMonths(a.years[y].months);
                 }
               });
+              if (typeof syncAccountHeadsAcrossYears === 'function') {
+                syncAccountHeadsAcrossYears(a);
+              }
             });
-            restoreLocalOpenings();
-            safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            saveData();
             const isUserEditingPush = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
             if (!isUserEditingPush && typeof refreshCurrentView === 'function') {
               refreshCurrentView();
@@ -8637,6 +8831,7 @@
             this.config.lastSyncTime = existingRemote.updatedAt || new Date().toISOString();
             this.config.lastError = '';
             this.saveConfig();
+            this.updateUIStatus();
             if (!isSilent) {
               alert(`📥 क्लाऊडवरून ${remoteTxCount} नोंदी या डिव्हाइसवर आपोआप सुरक्षित डाऊनलोड झाल्या आहेत!`);
             }
@@ -8646,8 +8841,7 @@
           // GUARD 2: Merge remote transactions before overwriting so both devices keep all entries
           if (existingRemote && existingRemote.appData && remoteTxCount > 0 && !isForce) {
             this.mergeAppData(existingRemote.appData, existingRemote);
-            restoreLocalOpenings();
-            safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            saveData();
             const isUserEditingPush = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
             if (!isUserEditingPush && typeof refreshCurrentView === 'function') refreshCurrentView();
 
@@ -8659,6 +8853,33 @@
                 body: JSON.stringify(existingRemote)
               }).catch(() => {});
             } catch (bErr) {}
+          }
+
+          // BULLETPROOF REMOTE OPENING BALANCE GUARD:
+          // A local 0 must NEVER overwrite a valid remote 1 April opening balance in Firebase!
+          if (existingRemote && existingRemote.appData && Array.isArray(existingRemote.appData.accounts)) {
+            existingRemote.appData.accounts.forEach(rAcc => {
+              const lAcc = (appData.accounts || []).find(a => a.id === rAcc.id || a.name === rAcc.name);
+              if (!lAcc || !lAcc.years || !rAcc.years) return;
+              Object.keys(rAcc.years).forEach(yKey => {
+                const rY = rAcc.years[yKey];
+                const lY = lAcc.years[yKey];
+                if (!rY || !rY.heads || !lY || !lY.heads) return;
+                rY.heads.forEach(rh => {
+                  const rBal = Number(rh.openingBalance) || 0;
+                  if (rBal !== 0) {
+                    const lh = lY.heads.find(h => h.id === rh.id || (h.name && rh.name && h.name.trim() === rh.name.trim()));
+                    if (lh) {
+                      const lBal = Number(lh.openingBalance) || 0;
+                      if (lBal === 0) {
+                        lh.openingBalance = rBal;
+                      }
+                    }
+                  }
+                });
+              });
+            });
+            saveData();
           }
 
           const payload = {
@@ -8825,7 +9046,6 @@
 
             let localTxCount = 0;
             let hasLocalOpenings = false;
-            const localOpenings = {};
             (appData.accounts || []).forEach(acc => {
               if (!acc || !acc.years) return;
               Object.values(acc.years).forEach(yr => {
@@ -8839,34 +9059,13 @@
                 const yr = acc.years[y];
                 if (yr && yr.heads) {
                   yr.heads.forEach(h => {
-                    if (h.id && h.openingBalance !== undefined && h.openingBalance !== null && !isNaN(Number(h.openingBalance))) {
-                      const numBal = Number(h.openingBalance);
-                      localOpenings[`${acc.id}_${y}_${h.id}`] = numBal;
-                      if (numBal > 0) {
-                        hasLocalOpenings = true;
-                      }
+                    if (h && (Number(h.openingBalance) || 0) !== 0) {
+                      hasLocalOpenings = true;
                     }
                   });
                 }
               });
             });
-
-            const restoreLocalOpenings = () => {
-              (appData.accounts || []).forEach(acc => {
-                if (!acc || !acc.years) return;
-                Object.keys(acc.years).forEach(y => {
-                  const yr = acc.years[y];
-                  if (yr && yr.heads) {
-                    yr.heads.forEach(h => {
-                      const key = `${acc.id}_${y}_${h.id}`;
-                      if (localOpenings[key] !== undefined) {
-                        h.openingBalance = localOpenings[key];
-                      }
-                    });
-                  }
-                });
-              });
-            };
 
             // If forceReplace (on login / manual button), UDISE mismatch, or local is completely blank (0 tx and 0 openings) while remote has data:
             const isLocalBlank = (localTxCount === 0 && !hasLocalOpenings && remoteTxCount > 0);
@@ -8877,12 +9076,9 @@
               }
             } else {
               this.mergeAppData(json.appData, json, false);
-              if (hasLocalOpenings) {
-                restoreLocalOpenings();
-              }
             }
 
-            // Ensure all accounts and years are sanitized
+            // Ensure all accounts and years are sanitized and heads synced across years
             (appData.accounts || []).forEach(a => {
               if (!a || !a.years) return;
               Object.keys(a.years).forEach(y => {
@@ -8890,11 +9086,12 @@
                   a.years[y].months = sanitizeMonths(a.years[y].months);
                 }
               });
+              if (typeof syncAccountHeadsAcrossYears === 'function') {
+                syncAccountHeadsAcrossYears(a);
+              }
             });
 
-            // Opening balances preserved safely in pullData
-
-            safeStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            saveData();
             const isUserEditing = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
             if (!isUserEditing && typeof refreshCurrentView === 'function') {
               refreshCurrentView();
@@ -8935,6 +9132,14 @@
       mergeAppData(remoteAppData, remoteRoot, forceReplace = false) {
         if (!remoteAppData) return;
 
+        // MULTI-TENANT GUARD: never merge if school UDISE does not match!
+        const localUdise = (appData && appData.schoolInfo && appData.schoolInfo.udise) ? String(appData.schoolInfo.udise).trim() : '';
+        const remoteUdise = (remoteAppData && remoteAppData.schoolInfo && remoteAppData.schoolInfo.udise) ? String(remoteAppData.schoolInfo.udise).trim() : (this.config.schoolCode || '');
+        if (localUdise && remoteUdise && localUdise !== remoteUdise) {
+          console.warn(`Prevented cross-school merge between local ${localUdise} and remote ${remoteUdise}`);
+          return;
+        }
+
         // 1. School Info Auto-Sync & Merge (UDISE, Name, Center, Taluka, District, HM)
         const remoteSchool = (remoteAppData && remoteAppData.schoolInfo) || (remoteRoot && remoteRoot.schoolInfo) || {};
         if (remoteSchool && typeof remoteSchool === 'object' && Object.keys(remoteSchool).length > 0) {
@@ -8960,8 +9165,10 @@
           if (appData.schoolInfo.udise) {
             this.config.schoolCode = appData.schoolInfo.udise;
             this.saveConfig();
-            const cInput = document.getElementById('fbSchoolCodeInput');
-            if (cInput) cInput.value = appData.schoolInfo.udise;
+            if (typeof document !== 'undefined') {
+              const cInput = document.getElementById('fbSchoolCodeInput');
+              if (cInput) cInput.value = appData.schoolInfo.udise;
+            }
           }
         }
 
@@ -8978,20 +9185,34 @@
             lAcc.accountNo = lAcc.accountNo || rAcc.accountNo;
             lAcc.ifsc = lAcc.ifsc || rAcc.ifsc;
 
+            // Merge deletedHeadIds so deletions on either device are respected
+            lAcc.deletedHeadIds = Array.isArray(lAcc.deletedHeadIds) ? lAcc.deletedHeadIds : [];
+            if (Array.isArray(rAcc.deletedHeadIds)) {
+              rAcc.deletedHeadIds.forEach(id => {
+                if (!lAcc.deletedHeadIds.includes(id)) lAcc.deletedHeadIds.push(id);
+              });
+            }
+
             // Merge years
             lAcc.years = lAcc.years || {};
             const rYears = rAcc.years || {};
             Object.keys(rYears).forEach(yKey => {
               if (!lAcc.years[yKey]) {
                 lAcc.years[yKey] = rYears[yKey];
+                if (lAcc.years[yKey] && Array.isArray(lAcc.years[yKey].heads)) {
+                  lAcc.years[yKey].heads = lAcc.years[yKey].heads.filter(h => h && !lAcc.deletedHeadIds.includes(h.id));
+                }
               } else {
                 const lY = lAcc.years[yKey];
                 const rY = rYears[yKey];
 
-                // Merge heads safely: NEVER overwrite a positive local opening balance with 0!
+                // Merge heads safely: NEVER restore deleted heads! NEVER overwrite a positive local opening balance with 0!
                 const lHeads = lY.heads || [];
                 const rHeads = rY.heads || [];
                 rHeads.forEach(rh => {
+                  if (rh && lAcc.deletedHeadIds.includes(rh.id)) {
+                    return; // Deleted! Do not restore
+                  }
                   const lh = lHeads.find(h => h.id === rh.id || (h.name && rh.name && h.name.trim() === rh.name.trim()));
                   if (!lh) {
                     lHeads.push(rh);
@@ -9000,13 +9221,14 @@
                     const lBal = Number(lh.openingBalance) || 0;
                     if (Boolean(forceReplace)) {
                       lh.openingBalance = rBal;
-                    } else if (lBal === 0 && rBal > 0) {
+                      lh.name = rh.name;
+                    } else if (lBal === 0 && rBal !== 0) {
                       lh.openingBalance = rBal;
                     }
-                    // If local already has a value (lBal > 0), DO NOT overwrite it with remote 0!
+                    // If local already has a value (lBal !== 0), DO NOT overwrite it with remote 0!
                   }
                 });
-                lY.heads = lHeads;
+                lY.heads = lHeads.filter(h => h && !lAcc.deletedHeadIds.includes(h.id));
 
                 // Merge months safely with sanitizeMonths
                 lY.months = sanitizeMonths(lY.months);
@@ -9062,6 +9284,9 @@
         });
 
         appData.accounts = localAccounts;
+        if (typeof syncAccountHeadsAcrossYears === 'function') {
+          (appData.accounts || []).forEach(a => syncAccountHeadsAcrossYears(a));
+        }
       },
 
       async restoreBackup() {
@@ -9133,8 +9358,8 @@
     }
 
     function initApp() {
-      loadData();
       authEngine.init();
+      loadData();
       firebaseSync.init();
       refreshCurrentView();
       switchTab('heads');
