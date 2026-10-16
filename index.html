@@ -2558,6 +2558,36 @@
         </div>
       </div>
 
+      <!-- 2.5 Distributed Sync Architecture Card -->
+      <div class="card" style="background: #f8fafc; border: 1.5px solid #cbd5e1;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+          <div class="card-title" style="color: #1e3a8a; font-size: 0.95rem;">
+            🛡️ प्रगत मल्टि-डिव्हाइस सुरक्षा इंजिन (Distributed Sync Engine)
+          </div>
+          <span style="background: #dbeafe; color: #1e40af; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 4px;">
+            सक्रिय (Active v2.0)
+          </span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px;">
+          <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+            <strong style="color: #0f766e; display: block; margin-bottom: 2px;">⏱️ Timestamp / Versioning</strong>
+            प्रत्येक नोंद व हेडवर सूक्ष्म मिलीसेकंद टाईमस्टॅम्प. जुने डिव्हाइस नवीन बदल ओव्हरराइट करू शकत नाही.
+          </div>
+          <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+            <strong style="color: #2563eb; display: block; margin-bottom: 2px;">🔒 Optimistic Locking (ETag)</strong>
+            HTTP ETag द्वारे दोन शिक्षकांनी एकाच वेळी बदल केल्यास आपोआप डेटा जुळवून (merge) घेतला जातो.
+          </div>
+          <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+            <strong style="color: #d97706; display: block; margin-bottom: 2px;">📦 Local Caching & Queue</strong>
+            नेट नसताना केलेले बदल स्थानिक रांगेत सुरक्षित राहतात व इंटरनेट येताच क्रमाने सिंक होतात.
+          </div>
+          <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.82rem;">
+            <strong style="color: #7c3aed; display: block; margin-bottom: 2px;">🛡️ Server Validation Rules</strong>
+            प्रकल्प फोल्डरमधील <code>database.rules.json</code> द्वारे सर्व्हरवरच जुना डेटा ब्लॉक करता येतो.
+          </div>
+        </div>
+      </div>
+
       <!-- 3. Simple Step-by-Step Setup Guide -->
       <div class="card" style="background: #f0fdf4; border: 1.5px solid #86efac;">
         <h4 style="color: #166534; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
@@ -7150,10 +7180,16 @@
         }
 
         if (foundTx) {
+          const now = Date.now();
           foundTx.date = date;
           foundTx.amount = amount;
           foundTx.headId = headId;
           foundTx.details = details;
+          foundTx.updatedAt = now;
+          if (!foundTx.createdAt) {
+            const idMatch = (foundTx.id || "").match(/^tx_(\d+)_/);
+            foundTx.createdAt = idMatch ? parseInt(idMatch[1], 10) : now;
+          }
           if (type === "jama") {
             foundTx.receiptNo = (document.getElementById("txReceiptNo").value || "").trim();
             foundTx.chqNo = (document.getElementById("txChqNo").value || "").trim();
@@ -7169,16 +7205,23 @@
             const targetList = type === "jama" ? targetData.jama : targetData.kharch;
             targetList.push(foundTx);
           }
+
+          if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+            firebaseSync.enqueueAction({ action: 'SAVE_TX', txType: type, tx: foundTx, timestamp: now });
+          }
         }
       } else {
+        const now = Date.now();
         const targetData = getMonthData(targetMonth);
         const targetList = type === "jama" ? targetData.jama : targetData.kharch;
         const newTx = {
-          id: "tx_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+          id: "tx_" + now + "_" + Math.floor(Math.random() * 1000),
           date: date,
           amount: amount,
           headId: headId,
-          details: details
+          details: details,
+          createdAt: now,
+          updatedAt: now
         };
         if (type === "jama") {
           newTx.receiptNo = (document.getElementById("txReceiptNo").value || "").trim();
@@ -7190,6 +7233,10 @@
           newTx.remarks = (document.getElementById("txRemarks").value || "").trim();
         }
         targetList.push(newTx);
+
+        if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+          firebaseSync.enqueueAction({ action: 'SAVE_TX', txType: type, tx: newTx, timestamp: now });
+        }
       }
 
       appData.currentMonth = targetMonth;
@@ -7230,6 +7277,9 @@
       const nextYr = getNextFinancialYear(appData.currentYear, getCurrentAccount());
       if (nextYr) {
         syncOpeningFromPreviousYear(nextYr, true);
+      }
+      if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+        firebaseSync.enqueueAction({ action: 'DELETE_TX', txType: type, id: id, timestamp: Date.now() });
       }
       saveData();
       refreshCurrentView();
@@ -7296,19 +7346,31 @@
         }
         const h = yData.heads.find(x => x.id === editId);
         if (h) {
+          const now = Date.now();
           h.name = name;
           h.openingBalance = bal;
+          h.updatedAt = now;
+          h._userModified = true;
+          if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+            firebaseSync.enqueueAction({ action: 'SAVE_HEAD', headId: editId, name: name, openingBalance: bal, timestamp: now });
+          }
         }
         if (curAcc && Array.isArray(curAcc.deletedHeadIds)) {
           curAcc.deletedHeadIds = curAcc.deletedHeadIds.filter(id => id !== editId);
         }
       } else {
-        const newHeadId = "h_" + Date.now();
+        const now = Date.now();
+        const newHeadId = "h_" + now;
         yData.heads.push({
           id: newHeadId,
           name: name,
-          openingBalance: bal
+          openingBalance: bal,
+          updatedAt: now,
+          _userModified: true
         });
+        if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+          firebaseSync.enqueueAction({ action: 'SAVE_HEAD', headId: newHeadId, name: name, openingBalance: bal, timestamp: now });
+        }
         if (curAcc && curAcc.years) {
           Object.keys(curAcc.years).forEach(y => {
             if (y === appData.currentYear) return;
@@ -7319,7 +7381,9 @@
                 yr.heads.push({
                   id: newHeadId,
                   name: name,
-                  openingBalance: 0
+                  openingBalance: 0,
+                  updatedAt: now,
+                  _userModified: true
                 });
               }
             }
@@ -7347,6 +7411,9 @@
         // Save immediately to local storage without aggressive network blocking
         saveData();
         if (typeof firebaseSync !== 'undefined') {
+          if (typeof firebaseSync.enqueueAction === 'function') {
+            firebaseSync.enqueueAction({ action: 'UPDATE_HEAD', headId: headId, openingBalance: h.openingBalance, timestamp: h.updatedAt });
+          }
           firebaseSync.hasPendingChanges = true;
           if (firebaseSync.scheduleDebouncedPush) {
             firebaseSync.scheduleDebouncedPush();
@@ -7368,12 +7435,16 @@
 
     async function saveAllHeadsBalances() {
       const yData = getCurrentYearData();
+      const now = Date.now();
       (yData.heads || []).forEach(h => {
         const inp = document.getElementById(`head_bal_${h.id}`);
         if (inp) {
           h.openingBalance = Math.round(((parseFloat(inp.value) || 0) + Number.EPSILON) * 100) / 100;
-          h.updatedAt = Date.now();
+          h.updatedAt = now;
           h._userModified = true;
+          if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+            firebaseSync.enqueueAction({ action: 'UPDATE_HEAD', headId: h.id, openingBalance: h.openingBalance, timestamp: now });
+          }
         }
       });
       saveData();
@@ -7409,6 +7480,9 @@
       const yData = getCurrentYearData();
       if (yData && Array.isArray(yData.heads)) {
         yData.heads = yData.heads.filter(x => x.id !== headId);
+      }
+      if (typeof firebaseSync !== 'undefined' && typeof firebaseSync.enqueueAction === 'function') {
+        firebaseSync.enqueueAction({ action: 'DELETE_HEAD', headId: headId, timestamp: Date.now() });
       }
       saveData(true);
       refreshCurrentView();
@@ -8218,10 +8292,48 @@
       isSyncing: false,
       hasPendingChanges: false,
       _initialPullDone: false,
+      _remoteETag: null,
       debounceTimer: null,
       pollTimer: null,
       fiveSecTimer: null,
       STORAGE_KEY: 'CASHBOOK_FIREBASE_CONFIG',
+
+      getQueueKey() {
+        const udise = (this.getSchoolUdise() || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+        return `CASHBOOK_SYNC_QUEUE_${udise}`;
+      },
+
+      enqueueAction(action) {
+        try {
+          const key = this.getQueueKey();
+          const raw = safeStorage.getItem(key);
+          const queue = raw ? JSON.parse(raw) : [];
+          queue.push(action);
+          if (queue.length > 200) queue.splice(0, queue.length - 200);
+          safeStorage.setItem(key, JSON.stringify(queue));
+          this.hasPendingChanges = true;
+          if (this.scheduleDebouncedPush) this.scheduleDebouncedPush();
+        } catch(e) {
+          console.warn("Queue enqueue error:", e);
+        }
+      },
+
+      getQueue() {
+        try {
+          const key = this.getQueueKey();
+          const raw = safeStorage.getItem(key);
+          return raw ? JSON.parse(raw) : [];
+        } catch(e) {
+          return [];
+        }
+      },
+
+      clearQueue() {
+        try {
+          const key = this.getQueueKey();
+          safeStorage.removeItem(key);
+        } catch(e) {}
+      },
 
       init() {
         this.loadConfig();
@@ -8484,10 +8596,15 @@
             `;
           } else if (this.config.status === 'synced') {
             const udiseDisplay = this.getSchoolUdise() ? `शाळा UDISE: <strong>${this.getSchoolUdise()}</strong>` : '<strong>👑 ॲडमिन मोड</strong>';
+            const queueCount = (typeof this.getQueue === 'function') ? this.getQueue().length : 0;
+            const queueBadge = queueCount > 0 ? `<span style="background: #fef3c7; color: #b45309; padding: 2px 7px; border-radius: 4px; font-weight: bold; font-size: 0.76rem; margin-left: 6px;">⏳ ${queueCount} ऑफलाईन बदल रांगेत</span>` : `<span style="background: #dcfce7; color: #166534; padding: 2px 7px; border-radius: 4px; font-weight: bold; font-size: 0.76rem; margin-left: 6px;">⚡ ETag + Versioning सक्रिय</span>`;
             statusBox.innerHTML = `
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
-                  <strong style="color: #15803d; font-size: 1rem;">🟢 Google Firebase रिअल-टाईम सिंक सक्रिय आहे!</strong>
+                  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <strong style="color: #15803d; font-size: 1rem;">🟢 Google Firebase रिअल-टाईम सिंक सक्रिय आहे!</strong>
+                    ${queueBadge}
+                  </div>
                   <div style="color: #166534; font-size: 0.82rem; margin-top: 4px;">
                     ${udiseDisplay} &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
                   </div>
@@ -8767,8 +8884,13 @@
         try {
           let existingRemote = null;
           try {
-            const checkRes = await fetch(`${endpoint}?t=${Date.now()}`, { cache: 'no-store' });
+            const checkRes = await fetch(`${endpoint}?t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: { 'X-Firebase-ETag': 'true' }
+            });
             if (checkRes.ok) {
+              const etag = checkRes.headers.get('etag');
+              if (etag) this._remoteETag = etag;
               existingRemote = await checkRes.json();
             }
           } catch (cErr) {
@@ -8882,15 +9004,55 @@
             appData: appData
           };
 
-          // Single Direct Push to Official Firebase RTDB
+          // Single Direct Push to Official Firebase RTDB with Optimistic Locking
           const destUrl = `${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json`;
-          const pushRes = await fetch(destUrl, {
+          const pushHeaders = {
+            'Content-Type': 'application/json',
+            'X-Firebase-ETag': 'true'
+          };
+          if (!isForce && this._remoteETag) {
+            pushHeaders['if-match'] = this._remoteETag;
+          }
+
+          let pushRes = await fetch(destUrl, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: pushHeaders,
             body: JSON.stringify(payload)
           });
 
+          // OPTIMISTIC CONCURRENCY RETRY ON 412 PRECONDITION FAILED
+          if (pushRes.status === 412 && !isForce) {
+            console.warn("Optimistic locking conflict (412 Precondition Failed)! Another device saved newer data. Auto-merging...");
+            const conflictRes = await fetch(`${endpoint}?t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: { 'X-Firebase-ETag': 'true' }
+            });
+            if (conflictRes.ok) {
+              const conflictRemote = await conflictRes.json();
+              this._remoteETag = conflictRes.headers.get('etag') || null;
+              if (conflictRemote && conflictRemote.appData) {
+                this.mergeAppData(conflictRemote.appData, conflictRemote);
+                saveData();
+                payload.appData = appData;
+                payload.updatedAt = new Date().toISOString();
+                const retryHeaders = {
+                  'Content-Type': 'application/json',
+                  'X-Firebase-ETag': 'true'
+                };
+                if (this._remoteETag) retryHeaders['if-match'] = this._remoteETag;
+                pushRes = await fetch(destUrl, {
+                  method: 'PUT',
+                  headers: retryHeaders,
+                  body: JSON.stringify(payload)
+                });
+              }
+            }
+          }
+
           if (pushRes.ok) {
+            const newETag = pushRes.headers.get('etag');
+            if (newETag) this._remoteETag = newETag;
+            if (typeof this.clearQueue === 'function') this.clearQueue();
             this.hasPendingChanges = false;
             this._lastSavedJson = JSON.stringify(appData);
             this.config.status = 'synced';
@@ -8976,8 +9138,13 @@
           let json = null;
 
           try {
-            const fetchRes = await fetch(`${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json?t=${Date.now()}`, { cache: 'no-store' });
+            const fetchRes = await fetch(`${cleanBaseUrl}/cashbook_schools/${this.getCloudKey()}.json?t=${Date.now()}`, {
+              cache: 'no-store',
+              headers: { 'X-Firebase-ETag': 'true' }
+            });
             if (fetchRes.ok) {
+              const etag = fetchRes.headers.get('etag');
+              if (etag) this._remoteETag = etag;
               const fetchJson = await fetchRes.json();
               if (fetchJson && fetchJson.appData) {
                 json = fetchJson;
@@ -9251,12 +9418,25 @@
                     lM.jama = Array.isArray(lM.jama) ? lM.jama : [];
                     const rJama = Array.isArray(rM.jama) ? rM.jama : [];
                     
-                    // Merging Jama: UPDATE existing entries so edits (badal) are reflected!
+                    const getTxTime = (tx) => {
+                      if (!tx) return 0;
+                      if (tx.updatedAt) return Number(tx.updatedAt) || 0;
+                      if (tx.createdAt) return Number(tx.createdAt) || 0;
+                      const m = String(tx.id || '').match(/^tx_(\d+)_/);
+                      return m ? parseInt(m[1], 10) : 0;
+                    };
+
+                    // Merging Jama: UPDATE existing entries using timestamp priority!
                     rJama.forEach(rtx => {
                       if (!rtx || lAcc.deletedTxIds.includes(rtx.id)) return;
                       const existingIdx = lM.jama.findIndex(ltx => ltx && ltx.id === rtx.id);
                       if (existingIdx !== -1) {
-                        lM.jama[existingIdx] = Object.assign({}, lM.jama[existingIdx], rtx);
+                        const ltx = lM.jama[existingIdx];
+                        const lTime = getTxTime(ltx);
+                        const rTime = getTxTime(rtx);
+                        if (rTime > lTime || (rTime === 0 && lTime === 0)) {
+                          lM.jama[existingIdx] = Object.assign({}, ltx, rtx);
+                        }
                       } else {
                         const duplicate = lM.jama.some(ltx => ltx && (ltx.date === rtx.date && ltx.amount === rtx.amount && ltx.headId === rtx.headId && ltx.details === rtx.details));
                         if (!duplicate) {
@@ -9269,12 +9449,17 @@
                     lM.kharch = Array.isArray(lM.kharch) ? lM.kharch : [];
                     const rKharch = Array.isArray(rM.kharch) ? rM.kharch : [];
                     
-                    // Merging Kharch: UPDATE existing entries so edits (badal) are reflected!
+                    // Merging Kharch: UPDATE existing entries using timestamp priority!
                     rKharch.forEach(rtx => {
                       if (!rtx || lAcc.deletedTxIds.includes(rtx.id)) return;
                       const existingIdx = lM.kharch.findIndex(ltx => ltx && ltx.id === rtx.id);
                       if (existingIdx !== -1) {
-                        lM.kharch[existingIdx] = Object.assign({}, lM.kharch[existingIdx], rtx);
+                        const ltx = lM.kharch[existingIdx];
+                        const lTime = getTxTime(ltx);
+                        const rTime = getTxTime(rtx);
+                        if (rTime > lTime || (rTime === 0 && lTime === 0)) {
+                          lM.kharch[existingIdx] = Object.assign({}, ltx, rtx);
+                        }
                       } else {
                         const duplicate = lM.kharch.some(ltx => ltx && (ltx.date === rtx.date && ltx.amount === rtx.amount && ltx.headId === rtx.headId && ltx.details === rtx.details));
                         if (!duplicate) {

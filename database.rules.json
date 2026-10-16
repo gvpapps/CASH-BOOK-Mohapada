@@ -1,0 +1,25 @@
+﻿{
+  rules: {
+    .read: true,
+    .write: true,
+    cashbook_schools: {
+      ": {
+ .validate: newData.hasChildren(['appData', 'updatedAt', 'schoolCode']) && (!data.exists() || !data.child('updatedAt').exists() || newData.child('updatedAt').val() >= data.child('updatedAt').val())
+ }
+ },
+ cashbook_backups: {
+ : {
+ .read: true,
+ .write: true
+ }
+ },
+ schools: {
+ .read: true,
+ .write: true
+ },
+ admin_config: {
+ .read: true,
+ .write: true
+ }
+ }
+}
