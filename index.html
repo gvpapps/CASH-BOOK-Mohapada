@@ -7212,6 +7212,13 @@
         return;
       }
       if (!confirm("तुम्हाला ही नोंद खरोखर हटवायची आहे का?")) return;
+      const curAcc = getCurrentAccount();
+      if (curAcc) {
+        curAcc.deletedTxIds = Array.isArray(curAcc.deletedTxIds) ? curAcc.deletedTxIds : [];
+        if (!curAcc.deletedTxIds.includes(id)) {
+          curAcc.deletedTxIds.push(id);
+        }
+      }
       for (const m of FINANCIAL_MONTHS) {
         const mData = getMonthData(m.num);
         if (type === "jama") {
@@ -7335,6 +7342,8 @@
       const h = (yData.heads || []).find(x => x.id === headId);
       if (h) {
         h.openingBalance = Math.round(((parseFloat(val) || 0) + Number.EPSILON) * 100) / 100;
+        h.updatedAt = Date.now();
+        h._userModified = true;
         // Save immediately to local storage without aggressive network blocking
         saveData();
         if (typeof firebaseSync !== 'undefined') {
@@ -7363,6 +7372,8 @@
         const inp = document.getElementById(`head_bal_${h.id}`);
         if (inp) {
           h.openingBalance = Math.round(((parseFloat(inp.value) || 0) + Number.EPSILON) * 100) / 100;
+          h.updatedAt = Date.now();
+          h._userModified = true;
         }
       });
       saveData();
@@ -8206,6 +8217,7 @@
       _syncStartTime: 0,
       isSyncing: false,
       hasPendingChanges: false,
+      _initialPullDone: false,
       debounceTimer: null,
       pollTimer: null,
       fiveSecTimer: null,
@@ -8364,7 +8376,7 @@
               } else {
                 safeStorage.setItem(STORAGE_KEY, currentStr);
               }
-              if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing) {
+              if (this.config.enabled && this.config.firebaseUrl && !this.isSyncing && this._initialPullDone) {
                 this.pushData(true);
               }
             } else if (!this._lastSavedJson) {
@@ -8855,32 +8867,8 @@
             } catch (bErr) {}
           }
 
-          // BULLETPROOF REMOTE OPENING BALANCE GUARD:
-          // A local 0 must NEVER overwrite a valid remote 1 April opening balance in Firebase!
-          if (existingRemote && existingRemote.appData && Array.isArray(existingRemote.appData.accounts)) {
-            existingRemote.appData.accounts.forEach(rAcc => {
-              const lAcc = (appData.accounts || []).find(a => a.id === rAcc.id || a.name === rAcc.name);
-              if (!lAcc || !lAcc.years || !rAcc.years) return;
-              Object.keys(rAcc.years).forEach(yKey => {
-                const rY = rAcc.years[yKey];
-                const lY = lAcc.years[yKey];
-                if (!rY || !rY.heads || !lY || !lY.heads) return;
-                rY.heads.forEach(rh => {
-                  const rBal = Number(rh.openingBalance) || 0;
-                  if (rBal !== 0) {
-                    const lh = lY.heads.find(h => h.id === rh.id || (h.name && rh.name && h.name.trim() === rh.name.trim()));
-                    if (lh) {
-                      const lBal = Number(lh.openingBalance) || 0;
-                      if (lBal === 0) {
-                        lh.openingBalance = rBal;
-                      }
-                    }
-                  }
-                });
-              });
-            });
-            saveData();
-          }
+          // Note: Intentional user edits (setting 0 or changing amount) are respected.
+          // Uninitialized device protection is handled by _initialPullDone.
 
           const payload = {
             version: "2.0",
@@ -9100,6 +9088,7 @@
             this.config.status = 'synced';
             this.config.lastSyncTime = json.updatedAt || new Date().toISOString();
             this.config.lastError = '';
+            this._initialPullDone = true;
             this.saveConfig();
 
             if (!isSilent) {
@@ -9193,6 +9182,14 @@
               });
             }
 
+            // Merge deletedTxIds so transaction deletions on either device are respected!
+            lAcc.deletedTxIds = Array.isArray(lAcc.deletedTxIds) ? lAcc.deletedTxIds : [];
+            if (Array.isArray(rAcc.deletedTxIds)) {
+              rAcc.deletedTxIds.forEach(id => {
+                if (!lAcc.deletedTxIds.includes(id)) lAcc.deletedTxIds.push(id);
+              });
+            }
+
             // Merge years
             lAcc.years = lAcc.years || {};
             const rYears = rAcc.years || {};
@@ -9206,12 +9203,12 @@
                 const lY = lAcc.years[yKey];
                 const rY = rYears[yKey];
 
-                // Merge heads safely: NEVER restore deleted heads! NEVER overwrite a positive local opening balance with 0!
+                // Merge heads safely: respect intentional user edits and timestamps
                 const lHeads = lY.heads || [];
                 const rHeads = rY.heads || [];
                 rHeads.forEach(rh => {
                   if (rh && lAcc.deletedHeadIds.includes(rh.id)) {
-                    return; // Deleted! Do not restore
+                    return; // Deleted head! Do not restore
                   }
                   const lh = lHeads.find(h => h.id === rh.id || (h.name && rh.name && h.name.trim() === rh.name.trim()));
                   if (!lh) {
@@ -9222,10 +9219,18 @@
                     if (Boolean(forceReplace)) {
                       lh.openingBalance = rBal;
                       lh.name = rh.name;
-                    } else if (lBal === 0 && rBal !== 0) {
+                      if (rh.updatedAt) lh.updatedAt = rh.updatedAt;
+                    } else if (rh.updatedAt && lh.updatedAt) {
+                      if (rh.updatedAt > lh.updatedAt) {
+                        lh.openingBalance = rBal;
+                        lh.updatedAt = rh.updatedAt;
+                      }
+                    } else if (lh._userModified) {
+                      // Local was intentionally modified by user on this device; keep local value!
+                    } else if (!this._initialPullDone && lBal === 0 && rBal !== 0) {
+                      // Only when device is booting fresh without initial pull!
                       lh.openingBalance = rBal;
                     }
-                    // If local already has a value (lBal !== 0), DO NOT overwrite it with remote 0!
                   }
                 });
                 lY.heads = lHeads.filter(h => h && !lAcc.deletedHeadIds.includes(h.id));
@@ -9238,8 +9243,8 @@
                   if (!rM) return;
                   if (!lY.months[mKey]) {
                     lY.months[mKey] = {
-                      jama: Array.isArray(rM.jama) ? [...rM.jama] : [],
-                      kharch: Array.isArray(rM.kharch) ? [...rM.kharch] : []
+                      jama: Array.isArray(rM.jama) ? rM.jama.filter(t => !lAcc.deletedTxIds.includes(t.id)) : [],
+                      kharch: Array.isArray(rM.kharch) ? rM.kharch.filter(t => !lAcc.deletedTxIds.includes(t.id)) : []
                     };
                   } else {
                     const lM = lY.months[mKey];
@@ -9248,7 +9253,7 @@
                     
                     // Merging Jama: UPDATE existing entries so edits (badal) are reflected!
                     rJama.forEach(rtx => {
-                      if (!rtx) return;
+                      if (!rtx || lAcc.deletedTxIds.includes(rtx.id)) return;
                       const existingIdx = lM.jama.findIndex(ltx => ltx && ltx.id === rtx.id);
                       if (existingIdx !== -1) {
                         lM.jama[existingIdx] = Object.assign({}, lM.jama[existingIdx], rtx);
@@ -9259,13 +9264,14 @@
                         }
                       }
                     });
+                    lM.jama = lM.jama.filter(ltx => ltx && !lAcc.deletedTxIds.includes(ltx.id));
 
                     lM.kharch = Array.isArray(lM.kharch) ? lM.kharch : [];
                     const rKharch = Array.isArray(rM.kharch) ? rM.kharch : [];
                     
                     // Merging Kharch: UPDATE existing entries so edits (badal) are reflected!
                     rKharch.forEach(rtx => {
-                      if (!rtx) return;
+                      if (!rtx || lAcc.deletedTxIds.includes(rtx.id)) return;
                       const existingIdx = lM.kharch.findIndex(ltx => ltx && ltx.id === rtx.id);
                       if (existingIdx !== -1) {
                         lM.kharch[existingIdx] = Object.assign({}, lM.kharch[existingIdx], rtx);
@@ -9276,6 +9282,7 @@
                         }
                       }
                     });
+                    lM.kharch = lM.kharch.filter(ltx => ltx && !lAcc.deletedTxIds.includes(ltx.id));
                   }
                 });
               }
