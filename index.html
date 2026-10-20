@@ -880,6 +880,72 @@
       display: block !important;
     }
 
+    
+    /* Cashbook Front Cover Page Styling */
+    .kird-cover-sheet,
+    .cashbook-cover-page {
+      width: 100%;
+      max-width: 210mm;
+      min-height: 292mm;
+      margin: 0 auto;
+      padding: 0;
+      box-sizing: border-box;
+      background: #ffffff;
+      color: #0f172a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      position: relative;
+      page-break-after: always;
+      break-after: page;
+      overflow: hidden;
+      border: 8px solid #d90429;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    @media print {
+      .kird-cover-sheet,
+      .cashbook-cover-page {
+        display: flex !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-height: 280mm !important;
+        max-height: 297mm !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .kird-cover-sheet *,
+      .cashbook-cover-page * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
+    @media print {
+      .cashbook-cover-page {
+        display: block !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-height: 275mm !important;
+        max-height: 297mm !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        margin: 0 !important;
+        padding: 6mm 6mm !important;
+      }
+      .cashbook-cover-page * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+
     @media print {
       html, body {
         background: #ffffff !important;
@@ -2296,6 +2362,7 @@
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <strong>📖 रजिस्टर दृश्य:</strong>
           <select id="regFilterMonth" onchange="renderRegisterView()">
+            <option value="cover">📜 0. कॅशबुक अधिकृत मुखपृष्ठ (Cover Page)</option>
             <option value="all">📖 संपूर्ण आर्थिक वर्ष (12 महिने + गोषवारा)</option>
             <option value="opening">1ले पान : सुरुवातीची शिल्लक</option>
             <option value="4">माहे एप्रिल</option>
@@ -2313,9 +2380,14 @@
             <option value="final">शेवटचे पान : वार्षिक ताळेबंद</option>
           </select>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="printSection('register')">
-          📄 रजिस्टर PDF डाऊनलोड / प्रिंट
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-warning btn-sm" onclick="openCashbookCoverModal()" style="font-weight: 700; background: #b45309; border-color: #92400e; color: #fff; box-shadow: 0 2px 4px rgba(180,83,9,0.25);">
+            📜 1. कॅशबुक मुखपृष्ठ (Cover Page)
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="printSection('register')">
+            📄 रजिस्टर PDF डाऊनलोड / प्रिंट
+          </button>
+        </div>
       </div>
 
       <!-- Register Container -->
@@ -2380,7 +2452,12 @@
       <div class="card" style="border-top: 4px solid #1e3a8a;">
         <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div class="card-title">🏫 शाळेची अधिकृत माहिती (School Information)</div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="openSchoolModal()" style="font-weight: 700; padding: 6px 14px; font-size: 0.88rem;">✏️ शाळा माहिती बदला (Edit School)</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-warning btn-sm" onclick="openCashbookCoverModal()" style="font-weight: 700; padding: 6px 14px; font-size: 0.88rem; background: #b45309; border-color: #92400e; color: #fff;">
+              📜 कॅशबुक अधिकृत मुखपृष्ठ (Cover Page)
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="openSchoolModal()" style="font-weight: 700; padding: 6px 14px; font-size: 0.88rem;">✏️ शाळा माहिती बदला (Edit School)</button>
+          </div>
         </div>
         <p style="color: #64748b; font-size: 0.84rem; margin-bottom: 12px;">
           येथे नोंदवलेला UDISE कोड, शाळेचे नाव, केंद्र व पत्ते Google Firebase क्लाऊडवर आपोआप सुरक्षित सिंक होतात.
@@ -2907,6 +2984,77 @@
   </div>
 
   <!-- 5. School Details Modal -->
+  
+  <!-- 4.9 Cashbook Front Cover Page Modal -->
+  <div class="modal-backdrop" id="cashbookCoverModal">
+    <div class="modal-box" style="max-width: 960px; width: 95%;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e3a8a, #0f172a); color: #fff;">
+        <h3 style="margin: 0; font-size: 1.25rem;">📜 कॅशबुक अधिकृत मुखपृष्ठ (Cover Page)</h3>
+        <button class="modal-close" style="color: #fff;" onclick="closeModal('cashbookCoverModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <!-- Controls row -->
+        <div style="background: #f1f5f9; padding: 14px 16px; border-radius: 8px; border: 1.5px solid #cbd5e1; margin-bottom: 16px;">
+          <div style="font-weight: 700; color: #1e3a8a; margin-bottom: 10px; font-size: 1.05rem;">
+            ⚙️ मुखपृष्ठ तपशील व कस्टमायझेशन:
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.88rem; font-weight: 700;">शाळेचे नाव:</label>
+              <input type="text" id="coverSchoolNameInput" style="font-weight: bold; color: #1e3a8a;" oninput="updateCoverPreviewFromModal()" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.88rem; font-weight: 700;">UDISE क्रमांक:</label>
+              <input type="text" id="coverUdiseInput" style="font-weight: bold;" oninput="updateCoverPreviewFromModal()" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.88rem; font-weight: 700;">केंद्र – तालुका – जिल्हा:</label>
+              <input type="text" id="coverLocationInput" style="font-weight: bold;" oninput="updateCoverPreviewFromModal()" />
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 0.88rem; font-weight: 700;">सन / शैक्षणिक वर्ष:</label>
+              <input type="text" id="coverYearInput" style="font-weight: bold; color: #1e3a8a;" oninput="updateCoverPreviewFromModal()" />
+            </div>
+          </div>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center; background: #ffffff; padding: 10px 14px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="color: #0f172a; font-size: 0.95rem;">किर्द रजिस्टर प्रकार:</strong>
+              <select id="coverAccountTypeSelect" onchange="updateCoverPreviewFromModal()" style="font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1.5px solid #93c5fd; color: #1e3a8a; font-size: 0.95rem;">
+                <option value="sadil_mdm">४% सादील आणि पोषण आहार किर्द रजिस्टर (अधिकृत)</option>
+                <option value="sadil_only">४% सादील किर्द रजिस्टर</option>
+                <option value="ssa_only">समग्र शिक्षा (SSA) किर्द रजिस्टर</option>
+                <option value="formal_table">शासकीय तपशीलवार तक्ता मुखपृष्ठ (Formal Table)</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <strong style="color: #0f172a; font-size: 0.95rem;">तळटीप पर्याय:</strong>
+              <select id="coverFooterSelect" onchange="updateCoverPreviewFromModal()" style="font-weight: bold; padding: 6px 12px; border-radius: 4px; border: 1.5px solid #93c5fd; color: #1e3a8a; font-size: 0.95rem;">
+                <option value="full">महाराष्ट्र शासन, शिक्षण विभाग व दस्तऐवज (दुरुस्त)</option>
+                <option value="none">केवळ दिनांक (तळटीप नको)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview Container -->
+        <div style="border: 2px solid #cbd5e1; border-radius: 8px; overflow-x: auto; background: #94a3b8; padding: 16px; max-height: 580px;">
+          <div id="coverPagePreviewContainer" style="box-shadow: 0 6px 25px rgba(0,0,0,0.3); margin: 0 auto; background: #fff; max-width: 210mm;">
+            <!-- Live Preview rendered here -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <span style="color: #64748b; font-size: 0.88rem;">💡 A4 Portrait वर सर्वोत्तम रंगीत रिझल्टसाठी प्रिंट मेन्यूमध्ये 'Background Graphics' चालू ठेवा.</span>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('cashbookCoverModal')">बंद करा</button>
+          <button type="button" class="btn btn-primary" onclick="printCashbookCoverFromModal()" style="font-weight: 700; background: #1e3a8a; border-color: #1e3a8a; padding: 8px 18px; font-size: 1rem;">
+            🖨️ मुखपृष्ठ प्रिंट / PDF डाऊनलोड
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="schoolModal">
     <div class="modal-box">
       <div class="modal-header">
@@ -3242,7 +3390,7 @@
 
         <!-- UPI ID with Copy Button -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-          <span style="font-weight: 700; color: #334155; font-size: 0.95rem;">UPI ID: <code id="subUpiDisplay" style="color: #2563eb; font-size: 1rem;">7038626209@ybl</code></span>
+          <span style="font-weight: 700; color: #334155; font-size: 0.95rem;">UPI ID: <code id="subUpiDisplay" style="color: #2563eb; font-size: 1rem;">9226979531@ptaxis</code></span>
           <button type="button" class="btn btn-outline btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('subUpiDisplay').innerText); showToast('📋 UPI ID कॉपी झाला!');">📋 कॉपी करा</button>
         </div>
 
@@ -3325,7 +3473,7 @@
             <strong style="color: #1e3a8a; font-size: 0.95rem; display: block; margin-bottom: 8px;">💳 पेमेंट व वार्षिक फी:</strong>
             <div class="form-group" style="margin-bottom: 8px;">
               <label>तुमचा UPI ID (PhonePe/GPay):</label>
-              <input type="text" id="adminSettingUpiId" placeholder="7038626209@ybl" />
+              <input type="text" id="adminSettingUpiId" placeholder="9226979531@ptaxis" />
             </div>
             <div class="form-group" style="margin-bottom: 10px;">
               <label>वार्षिक फी रक्कम (₹):</label>
@@ -3414,7 +3562,7 @@
       SESSION_KEY: 'CASHBOOK_AUTH_SESSION_V1',
       ADMIN_CONFIG_KEY: 'CASHBOOK_ADMIN_CONFIG_V1',
       LOCAL_SCHOOLS_KEY: 'CASHBOOK_LOCAL_REGISTERED_SCHOOLS_AUTH',
-      DEFAULT_UPI: '7038626209@ybl',
+      DEFAULT_UPI: '9226979531@ptaxis',
       DEFAULT_FEE: 499,
       DEFAULT_ADMIN_PASSWORD: 'AaryaParveer@1425',
       DEFAULT_ACTIVATION_CODE: 'Praveer@2503',
@@ -3437,7 +3585,7 @@
 
       showPendingApprovalAlert(actionName = 'नोंदी करणे') {
         if (this.currentUser && this.currentUser.licenseStatus === 'BLOCKED') {
-          alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\n" + actionName + " करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
+          alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\n" + actionName + " करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 9226979531)");
           return;
         }
         alert("🔒 परवाना प्रलंबित आहे (Pending Admin Approval)!\n\n" + actionName + " केवळ ॲडमिनने खात्याला मंजुरी (Active/Approve) दिल्यानंतरच करता येईल.\n\nसध्या आपण सर्व अहवाल, ताळेबंद व रजिस्टर पाहू शकता आणि शाळा माहिती बदलू शकता. मंजुरीसाठी कृपया ॲडमिनशी संपर्क साधा.");
@@ -3504,7 +3652,7 @@
                   this.updateHeaderAuthUI();
 
                   if (newStatus === 'BLOCKED') {
-                    alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
+                    alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 9226979531)");
                   } else if (newStatus === 'ACTIVE') {
                     showToast("🎉 मुख्य ॲडमिनने शाळेचा परवाना सक्रिय (Active) केला आहे!");
                     closeModal('subscriptionModal');
@@ -3539,6 +3687,9 @@
 
         if (!this.adminConfig.adminPassword) this.adminConfig.adminPassword = this.DEFAULT_ADMIN_PASSWORD;
         if (!this.adminConfig.activationCode) this.adminConfig.activationCode = this.DEFAULT_ACTIVATION_CODE;
+        if (!this.adminConfig.upiId || this.adminConfig.upiId === '7038626209@ybl') {
+          this.adminConfig.upiId = this.DEFAULT_UPI;
+        }
 
         // Sync admin config from Firebase silently in background
         const cleanBaseUrl = this.getFirebaseUrl();
@@ -3547,6 +3698,7 @@
             .then(r => r.json())
             .then(data => {
               if (data && typeof data === 'object') {
+                if (data.upiId === '7038626209@ybl') data.upiId = this.DEFAULT_UPI;
                 this.adminConfig = Object.assign({}, this.adminConfig, data);
                 safeStorage.setItem(this.ADMIN_CONFIG_KEY, JSON.stringify(this.adminConfig));
               }
@@ -3629,7 +3781,7 @@
             readOnlyBanner.innerHTML = `
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 1.25rem;">🚫</span>
-                <span><strong>परवाना बंद आहे (License Blocked):</strong> मुख्य ॲडमिनने या शाळेचा परवाना तात्पुरता बंद (Block) केला आहे. नवीन जमा/खर्च नोंदी बंद आहेत. परवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा. (मोबाईल: 7038626209)</span>
+                <span><strong>परवाना बंद आहे (License Blocked):</strong> मुख्य ॲडमिनने या शाळेचा परवाना तात्पुरता बंद (Block) केला आहे. नवीन जमा/खर्च नोंदी बंद आहेत. परवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा. (मोबाईल: 9226979531)</span>
               </div>
             `;
             readOnlyBanner.style.background = '#fef2f2';
@@ -3834,6 +3986,7 @@
         // 1. Check Super Admin Login (AaryaParveer@1425)
         const isAdminId = (
           idUpper === 'ADMIN' ||
+          cleanDigits.slice(-10) === '9226979531' ||
           cleanDigits.slice(-10) === '7038626209' ||
           id.toLowerCase().includes('gvpapps') ||
           id.toLowerCase() === 'admin'
@@ -3854,7 +4007,7 @@
             this.currentUser = {
               udise: 'ADMIN',
               name: 'सुपर ॲडमिन',
-              mobile: '7038626209',
+              mobile: '9226979531',
               role: 'SUPER_ADMIN',
               licenseStatus: 'ACTIVE',
               validUntil: '2099-12-31'
@@ -4033,7 +4186,7 @@
           }, 400);
         } else if (this.currentUser.licenseStatus === 'BLOCKED') {
           setTimeout(() => {
-            alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 7038626209)");
+            alert("🚫 या शाळेचा परवाना मुख्य ॲडमिनने तात्पुरता बंद (Block) केला आहे!\n\nपरवाना पुन्हा सुरू करण्यासाठी कृपया मुख्य ॲडमिनशी संपर्क साधा.\n(मोबाईल: 9226979531)");
           }, 400);
         }
       },
@@ -4192,7 +4345,7 @@
           inputEl.style.borderColor = '#dc2626';
           inputEl.style.backgroundColor = '#fef2f2';
           feedbackEl.style.color = '#dc2626';
-          feedbackEl.innerHTML = `⚠️ हा UDISE (${udise}) आधीच नोंदणीकृत आहे! एकाच UDISE कोडने पुन्हा नोंदणी करता येत नाही. कृपया <strong>ॲडमिनशी (9226979531 / 7038626209)</strong> संपर्क करा.`;
+          feedbackEl.innerHTML = `⚠️ हा UDISE (${udise}) आधीच नोंदणीकृत आहे! एकाच UDISE कोडने पुन्हा नोंदणी करता येत नाही. कृपया <strong>ॲडमिनशी (9226979531)</strong> संपर्क करा.`;
         } else {
           inputEl.style.borderColor = '#16a34a';
           inputEl.style.backgroundColor = '#f0fdf4';
@@ -4247,7 +4400,7 @@
             regBtn.innerText = '📝 खाते तयार करा व पुढे जा';
           }
           const safeName = sName || 'नोंदणीकृत शाळा';
-          const alertMsg = `❌ नोंदणी त्रुटी: हा UDISE (${u}) आधीच नोंदणीकृत आहे!\n\nएकाच UDISE कोडने दोनदा नोंदणी करता येत नाही.\n\nकृपया अधिक माहितीसाठी किंवा ॲक्टिव्हेशनसाठी ॲडमिनशी संपर्क साधा:\n📞 ॲडमिन संपर्क: 9226979531 / 7038626209`;
+          const alertMsg = `❌ नोंदणी त्रुटी: हा UDISE (${u}) आधीच नोंदणीकृत आहे!\n\nएकाच UDISE कोडने दोनदा नोंदणी करता येत नाही.\n\nकृपया अधिक माहितीसाठी किंवा ॲक्टिव्हेशनसाठी ॲडमिनशी संपर्क साधा:\n📞 ॲडमिन संपर्क: 9226979531`;
           alert(alertMsg);
 
           const errorHtml = `
@@ -4265,8 +4418,7 @@
               <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 0.88rem;">
                 <div style="font-weight: 700; color: #1e40af; margin-bottom: 6px;">👑 ॲडमिन संपर्क तपशील:</div>
                 <div style="display: flex; flex-direction: column; gap: 5px;">
-                  <div>📞 मुख्याध्यापक / ॲडमिन: <strong>श्री. गणेश विलास पष्टे</strong> - <a href="tel:9226979531" style="color: #2563eb; font-weight: 700; text-decoration: none;">9226979531</a></div>
-                  <div>📞 तांत्रिक सहाय्य / ॲडमिन: <a href="tel:7038626209" style="color: #2563eb; font-weight: 700; text-decoration: none;">7038626209</a></div>
+                  <div>📞 मुख्य ॲडमिन संपर्क: <strong>श्री. गणेश विलास पष्टे</strong> - <a href="tel:9226979531" style="color: #2563eb; font-weight: 700; text-decoration: none;">9226979531</a></div>
                   <div style="margin-top: 6px;">
                     <a href="https://wa.me/919226979531?text=${encodeURIComponent('नमस्कार ॲडमिन, माझी शाळा UDISE ' + u + ' आधीच नोंदणीकृत दिसत आहे. कृपया मदत करा.')}" target="_blank" class="btn btn-sm btn-success" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-weight: 700; text-decoration: none; border-radius: 6px;">
                       💬 WhatsApp वर संपर्क करा
@@ -6696,6 +6848,598 @@
     });
 
     // TAB 3: Register View
+    
+    // ==================== CASHBOOK COVER PAGE ENGINE ====================
+        const ZP_EDUCATION_SEAL = "data:image/jpeg;base64,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";
+
+    function toDevanagariDigits(val) {
+      if (val === null || val === undefined) return '';
+      const dMap = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
+      return String(val).replace(/[0-9]/g, d => dMap[parseInt(d, 10)]);
+    }
+
+        function generateCashbookCoverHtml(customOptions = {}) {
+      const s = (typeof appData !== 'undefined' && appData && appData.schoolInfo) ? appData.schoolInfo : {};
+      const curAcc = (typeof getCurrentAccount === 'function' && typeof appData !== 'undefined' && appData && appData.accounts ? getCurrentAccount() : null) || {};
+      const rawYear = customOptions.year || (typeof appData !== 'undefined' && appData && appData.currentYear) || "2025-26";
+      const cleanYear = String(rawYear).trim();
+
+      const accType = customOptions.accountType || (
+        (curAcc.id === 'acc_4percent_only') ? 'sadil_only' :
+        (curAcc.id === 'acc_ssa') ? 'ssa_only' : 'sadil_mdm'
+      );
+
+      // If user selected formal table, return formal table
+      if (accType === 'formal_table') {
+        return generateFormalTableCoverHtml(customOptions);
+      }
+
+      // Pure Royal Vector Cover Page (Full A4 Page layout matching official reference format)
+      let rawSchoolName = customOptions.schoolName || s.name || "मोहपाडा";
+      let prefix = "रा जि प शाळा";
+      let schoolTitle = rawSchoolName;
+
+      if (rawSchoolName.includes("रा जि प शाळा") || rawSchoolName.includes("रा.जि.प. शाळा") || rawSchoolName.includes("रा. जि. प. शाळा") || rawSchoolName.includes("रा.जि.प.")) {
+        prefix = "रा जि प शाळा";
+        schoolTitle = rawSchoolName.replace(/रा\.?\s*जि\.?\s*प\.?\s*प्राथमिक\s*शाळा/g, '')
+                                   .replace(/रा\.?\s*जि\.?\s*प\.?\s*शाळा/g, '')
+                                   .replace(/रा\.?\s*जि\.?\s*प\.?/g, '')
+                                   .trim();
+      } else if (rawSchoolName.includes("जिल्हा परिषद")) {
+        prefix = "जिल्हा परिषद शाळा";
+        schoolTitle = rawSchoolName.replace(/जिल्हा\s*परिषद\s*प्राथमिक\s*शाळा/g, '')
+                                   .replace(/जिल्हा\s*परिषद\s*शाळा/g, '')
+                                   .trim();
+      }
+
+      const udiseNum = customOptions.udise || s.udise || "27240219201";
+      const cleanUdise = String(udiseNum).replace(/[^0-9]/g, '');
+
+      let locText = customOptions.location || "";
+      if (!locText) {
+        const c = s.center || "नांदगाव";
+        const t = s.taluka || "कर्जत";
+        const d = s.district || "रायगड";
+        locText = "केंद्र – " + c + " &nbsp; ता. " + t + " &nbsp; जि. " + d;
+      }
+
+      // Year & Academic dates calculation (automatic Devanagari numerals)
+      const yrParts = cleanYear.split(/[-–—/]/);
+      let startYr = yrParts[0] ? yrParts[0].trim() : '2024';
+      let endYr = yrParts.length > 1 ? yrParts[1].trim() : '';
+      if (endYr.length === 2 && startYr.length === 4) {
+        endYr = startYr.slice(0, 2) + endYr;
+      } else if (!endYr && startYr.length === 4) {
+        endYr = String(parseInt(startYr, 10) + 1);
+      }
+
+      // Dates in English numerals as requested: "AANI DATE CHE ANK ENGRAJIT TAK"
+      const startDate = customOptions.startDate || ('01/04/' + startYr);
+      const endDate = customOptions.endDate || ('31/03/' + endYr);
+
+      // Ribbons and Badges based on Account Type
+      let middleSectionHtml = "";
+      if (accType === 'sadil_mdm') {
+        middleSectionHtml = `
+          <!-- 4% सादील Scalloped 3D Badge -->
+          <div style="
+            background: #fffdf5;
+            border: 4px solid #dc2626;
+            border-radius: 45px;
+            padding: 10px 70px;
+            box-shadow: 0 5px 15px rgba(220,38,38,0.22);
+            margin-top: 4px;
+          ">
+            <span style="
+              font-size: 3.4rem;
+              font-weight: 900;
+              color: #dc2626;
+              letter-spacing: normal;
+              font-family: 'Noto Sans Devanagari', sans-serif;
+              text-shadow: 2px 2px 0px #fef08a, 4px 4px 0px #b91c1c;
+            ">
+              4% सादील
+            </span>
+          </div>
+
+          <!-- Connector "आणि" -->
+          <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin: 4px 0;">
+            <span style="height: 3px; width: 80px; background: #1e3a8a;"></span>
+            <span style="font-size: 1.7rem; font-weight: 900; color: #1e3a8a; letter-spacing: normal;">आणि</span>
+            <span style="height: 3px; width: 80px; background: #1e3a8a;"></span>
+          </div>
+
+          <!-- Green Ribbon: पोषण आहार किर्द -->
+          <div style="
+            background: linear-gradient(180deg, #15803d 0%, #166534 100%);
+            color: #ffffff;
+            font-size: 2.8rem;
+            font-weight: 900;
+            padding: 12px 60px;
+            border-radius: 14px;
+            border: 3px solid #facc15;
+            box-shadow: 0 6px 16px rgba(22,101,52,0.35);
+            letter-spacing: normal;
+            font-family: 'Noto Sans Devanagari', sans-serif;
+            width: 86%;
+            max-width: 580px;
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+          ">
+            पोषण आहार किर्द
+          </div>
+
+          <!-- Red Ribbon: रजिस्टर -->
+          <div style="
+            background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
+            color: #ffffff;
+            font-size: 2.9rem;
+            font-weight: 900;
+            padding: 10px 75px;
+            border-radius: 14px;
+            border: 3px solid #facc15;
+            box-shadow: 0 6px 16px rgba(185,28,28,0.35);
+            letter-spacing: normal;
+            font-family: 'Noto Sans Devanagari', sans-serif;
+            width: 70%;
+            max-width: 480px;
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+          ">
+            रजिस्टर
+          </div>
+        `;
+      } else if (accType === 'sadil_only') {
+        middleSectionHtml = `
+          <!-- 4% सादील Scalloped 3D Badge -->
+          <div style="
+            background: #fffdf5;
+            border: 4px solid #dc2626;
+            border-radius: 45px;
+            padding: 12px 80px;
+            box-shadow: 0 5px 15px rgba(220,38,38,0.22);
+            margin-top: 10px;
+          ">
+            <span style="
+              font-size: 3.6rem;
+              font-weight: 900;
+              color: #dc2626;
+              letter-spacing: normal;
+              font-family: 'Noto Sans Devanagari', sans-serif;
+              text-shadow: 2px 2px 0px #fef08a, 4px 4px 0px #b91c1c;
+            ">
+              4% सादील
+            </span>
+          </div>
+
+          <!-- Green Ribbon: खर्च किर्द रजिस्टर -->
+          <div style="
+            background: linear-gradient(180deg, #15803d 0%, #166534 100%);
+            color: #ffffff;
+            font-size: 2.9rem;
+            font-weight: 900;
+            padding: 14px 60px;
+            border-radius: 14px;
+            border: 3px solid #facc15;
+            box-shadow: 0 6px 16px rgba(22,101,52,0.35);
+            letter-spacing: normal;
+            font-family: 'Noto Sans Devanagari', sans-serif;
+            width: 86%;
+            max-width: 580px;
+            margin-top: 25px;
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+          ">
+            खर्च किर्द रजिस्टर
+          </div>
+        `;
+      } else if (accType === 'ssa_only') {
+        middleSectionHtml = `
+          <!-- समग्र शिक्षा अभियान Badge -->
+          <div style="
+            background: #f0fdf4;
+            border: 4px solid #1e3a8a;
+            border-radius: 45px;
+            padding: 12px 60px;
+            box-shadow: 0 5px 15px rgba(30,58,138,0.22);
+            margin-top: 10px;
+          ">
+            <span style="
+              font-size: 3.2rem;
+              font-weight: 900;
+              color: #1e3a8a;
+              letter-spacing: normal;
+              font-family: 'Noto Sans Devanagari', sans-serif;
+              text-shadow: 2px 2px 0px #bfdbfe, 4px 4px 0px #1e40af;
+            ">
+              समग्र शिक्षा अभियान
+            </span>
+          </div>
+
+          <!-- Blue Ribbon: संयुक्त अनुदान किर्द रजिस्टर -->
+          <div style="
+            background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+            color: #ffffff;
+            font-size: 2.8rem;
+            font-weight: 900;
+            padding: 14px 50px;
+            border-radius: 14px;
+            border: 3px solid #facc15;
+            box-shadow: 0 6px 16px rgba(30,58,138,0.35);
+            letter-spacing: normal;
+            font-family: 'Noto Sans Devanagari', sans-serif;
+            width: 88%;
+            max-width: 600px;
+            margin-top: 25px;
+            text-shadow: 1px 2px 4px rgba(0,0,0,0.4);
+          ">
+            संयुक्त अनुदान किर्द रजिस्टर
+          </div>
+        `;
+      }
+
+      return `
+        <div class="kird-cover-sheet" style="
+          width: 100%;
+          max-width: 210mm;
+          min-height: 295mm;
+          margin: 0 auto;
+          padding: 0;
+          box-sizing: border-box;
+          background: #ffffff;
+          color: #0f172a;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          position: relative;
+          page-break-after: always;
+          break-after: page;
+          overflow: hidden;
+          border: 8px solid #d90429;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        ">
+          <!-- Royal Inner Gold Double Border Wrap -->
+          <div style="
+            border: 2.5px solid #d4af37;
+            margin: 5px;
+            min-height: calc(295mm - 26px);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 24px 28px 18px 28px;
+            background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 22%, #ffffff 78%, #fef2f2 100%);
+          ">
+            
+            <!-- 1. TOP HEADER SECTION -->
+            <div style="text-align: center; position: relative;">
+              <!-- Top Left ZP Seal -->
+              <div style="position: absolute; left: 0; top: 0;">
+                <img src="${ZP_EDUCATION_SEAL}" alt="ZP Seal" style="width: 86px; height: 86px; border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.18); border: 2.5px solid #d4af37; background: #fff;" />
+              </div>
+
+              <!-- Top Right Emblem (ज्ञानज्योत / दीप) -->
+              <div style="position: absolute; right: 0; top: 0;">
+                <svg width="86" height="86" viewBox="0 0 100 85" fill="none" xmlns="http://www.w3.org/2000/svg" style="border: 2.5px solid #d4af37; border-radius: 50%; padding: 8px; background: #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.18);">
+                  <!-- Flame -->
+                  <path d="M50 5 C50 5, 59 18, 59 27 C59 33, 55 37, 50 37 C45 37, 41 33, 41 27 C41 18, 50 5, 50 5Z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5"/>
+                  <path d="M50 14 C50 14, 54 21, 54 26 C54 29, 52 31, 50 31 C48 31, 46 29, 46 26 C46 21, 50 14, 50 14Z" fill="#fef08a"/>
+                  <!-- Lamp -->
+                  <path d="M36 37 C36 45, 64 45, 64 37 C66 40, 68 44, 60 49 C55 52, 53 58, 53 62 L47 62 C47 58, 45 52, 40 49 C32 44, 34 40, 36 37Z" fill="#1e3a8a" stroke="#0f172a" stroke-width="1.5"/>
+                  <path d="M42 62 L58 62 L64 69 L36 69 Z" fill="#1e3a8a" stroke="#0f172a" stroke-width="1.5"/>
+                  <path d="M26 73 C38 68, 48 70, 50 74 C52 70, 62 68, 74 73 L72 79 C60 74, 52 76, 50 78 C48 76, 40 74, 28 79 Z" fill="#0f172a"/>
+                  <text x="50" y="83" font-size="6.5" font-weight="bold" fill="#0f172a" text-anchor="middle" font-family="'Noto Sans Devanagari', sans-serif">ज्ञान प्रकाशते</text>
+                </svg>
+              </div>
+
+              <!-- School Name Header -->
+              <div style="padding: 0 95px;">
+                <div style="font-size: 2.5rem; font-weight: 900; color: #0a2558; letter-spacing: normal; font-family: 'Noto Sans Devanagari', sans-serif;">
+                  ${prefix}
+                </div>
+                <div style="font-size: 3.4rem; font-weight: 900; color: #0a2558; letter-spacing: normal; font-family: 'Noto Sans Devanagari', sans-serif; line-height: 1.15;">
+                  ${schoolTitle}
+                </div>
+              </div>
+
+              <!-- UDISE Pill Badge -->
+              <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin: 12px 0 8px 0;">
+                <span style="height: 2.5px; width: 60px; background: linear-gradient(to right, transparent, #881337);"></span>
+                <div style="
+                  background: linear-gradient(90deg, #9f1239, #881337);
+                  color: #ffffff;
+                  font-size: 1.35rem;
+                  font-weight: 900;
+                  padding: 5px 30px;
+                  border-radius: 30px;
+                  letter-spacing: normal;
+                  box-shadow: 0 3px 8px rgba(136,19,55,0.3);
+                ">
+                  UDISE ${cleanUdise}
+                </div>
+                <span style="height: 2.5px; width: 60px; background: linear-gradient(to left, transparent, #881337);"></span>
+              </div>
+
+              <!-- Center, Taluka, District Line -->
+              <div style="font-size: 1.35rem; font-weight: 800; color: #0a2558; margin-top: 6px; letter-spacing: normal;">
+                ${locText}
+              </div>
+            </div>
+
+            <!-- 2. MIDDLE CORE SECTION (RIBBONS & BADGES SPREAD ACROSS PAGE) -->
+            <div style="text-align: center; margin: 18px 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+              
+              <!-- Academic Year Ribbon (सन 2025-26) -->
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <div style="font-size: 1.6rem; margin-right: 10px;">✨🎨</div>
+                <div style="
+                  background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+                  color: #ffffff;
+                  font-size: 1.7rem;
+                  font-weight: 900;
+                  padding: 8px 55px;
+                  border-radius: 10px;
+                  border: 2.5px solid #fbbf24;
+                  box-shadow: 0 4px 12px rgba(30,58,138,0.35);
+                  letter-spacing: normal;
+                ">
+                  सन ${cleanYear}
+                </div>
+                <div style="font-size: 1.6rem; margin-left: 10px;">🎨✨</div>
+              </div>
+
+              ${middleSectionHtml}
+
+            </div>
+
+            <!-- 3. BOTTOM SECTION: OFFICIAL ACADEMIC DATES & DETAILS -->
+            <div style="text-align: center; margin-top: 8px;">
+              <!-- Dates Pill (English Digits) -->
+              <div style="
+                font-size: 1.35rem;
+                font-weight: 800;
+                color: #1e3a8a;
+                background: #ffffff;
+                border: 2px dashed #3b82f6;
+                display: inline-block;
+                padding: 8px 32px;
+                border-radius: 8px;
+                box-shadow: 0 2px 6px rgba(59,130,246,0.15);
+                margin-bottom: 12px;
+                font-family: 'Nirmala UI', 'Mangal', 'Noto Sans Devanagari', sans-serif;
+                letter-spacing: normal;
+              ">
+                प्रारंभिक दिनांक: <strong style="color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${startDate}</strong> &nbsp;ते&nbsp; अंतिम दिनांक: <strong style="color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">${endDate}</strong>
+              </div>
+
+${(customOptions.footerMode !== 'none') ? `
+              <!-- Department Footer (Zero letter-spacing, Pure Marathi font stack) -->
+              <div style="
+                font-size: 1.75rem;
+                font-weight: 900;
+                color: #0a2558;
+                margin-bottom: 8px;
+                font-family: 'Nirmala UI', 'Mangal', 'Noto Sans Devanagari', sans-serif;
+                letter-spacing: normal;
+                text-rendering: optimizeLegibility;
+              ">
+                महाराष्ट्र शासन, शिक्षण विभाग
+              </div>
+
+              <!-- Bottom Solid Bar (Zero letter-spacing, Pure Marathi font stack, NO uppercase) -->
+              <div style="
+                background: #0a2558;
+                color: #ffffff;
+                font-size: 1.15rem;
+                font-weight: 800;
+                letter-spacing: normal;
+                padding: 6px 24px;
+                border-radius: 4px;
+                display: inline-block;
+                font-family: 'Nirmala UI', 'Mangal', 'Noto Sans Devanagari', sans-serif;
+                text-rendering: optimizeLegibility;
+              ">
+                शालेय अधिकृत दस्तऐवज
+              </div>
+` : ''}
+            </div>
+
+          </div>
+        </div>
+      `;
+    }
+
+    // Secondary Formal Table Cover Page
+    function generateFormalTableCoverHtml(customOptions = {}) {
+      const s = (typeof appData !== 'undefined' && appData && appData.schoolInfo) ? appData.schoolInfo : {};
+      const rawYear = customOptions.year || (typeof appData !== 'undefined' && appData && appData.currentYear) || "2024-25";
+      const cleanYearStr = String(rawYear).trim();
+
+      const yrParts = cleanYearStr.split(/[-–—/]/);
+      let startYr = yrParts[0] ? yrParts[0].trim() : '2024';
+      let endYr = yrParts.length > 1 ? yrParts[1].trim() : '';
+      if (endYr.length === 2 && startYr.length === 4) {
+        endYr = startYr.slice(0, 2) + endYr;
+      } else if (!endYr && startYr.length === 4) {
+        endYr = String(parseInt(startYr, 10) + 1);
+      }
+
+      const marathiYearLabel = toDevanagariDigits(cleanYearStr);
+      const marathiYearHeader = toDevanagariDigits(startYr) + " - " + toDevanagariDigits(endYr);
+
+      const startDate = customOptions.startDate || ("01/04/" + startYr);
+      const endDate = customOptions.endDate || ("31/03/" + endYr);
+      const marathiStartDate = startDate;
+      const marathiEndDate = endDate;
+
+      const rawUdise = customOptions.udise || s.udise || '';
+      const cleanUdiseDigits = String(rawUdise).replace(/[^0-9]/g, '');
+      const marathiUdise = cleanUdiseDigits ? toDevanagariDigits(cleanUdiseDigits) : '....................';
+
+      const schoolName = customOptions.schoolName || s.name || 'जिल्हा परिषद प्राथमिक शाळा';
+      const center = s.center || '—';
+      const taluka = s.taluka || '—';
+      const district = s.district || '—';
+
+      return `
+        <div class="cashbook-cover-page" style="
+          width: 100%;
+          max-width: 210mm;
+          min-height: 290mm;
+          margin: 0 auto;
+          padding: 8mm 8mm;
+          box-sizing: border-box;
+          background: #fdfcf7;
+          color: #0f172a;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          position: relative;
+          page-break-after: always;
+          break-after: page;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+        ">
+          <div style="
+            border: 4px double #1a365d;
+            outline: 1.5px solid #d4af37;
+            outline-offset: -7px;
+            padding: 22px 26px;
+            min-height: calc(290mm - 16mm);
+            box-sizing: border-box;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          ">
+            <div style="text-align: center; margin-top: 6px;">
+              <h1 style="font-size: 3.2rem; font-weight: 900; color: #1a365d; margin: 0; letter-spacing: 2px; font-family: 'Noto Sans Devanagari', sans-serif;">कॅशबुक</h1>
+              <div style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; letter-spacing: 4px; margin-top: 2px;">(CASH BOOK)</div>
+              <div style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 12px 0;">सन / वर्ष: <span style="color: #b45309;">${marathiYearHeader}</span></div>
+              <div style="display: inline-block; background: #1a365d; color: #ffffff; font-size: 1.35rem; font-weight: 700; padding: 5px 32px; border-radius: 4px; margin-bottom: 14px;">शाळेची माहिती</div>
+            </div>
+
+            <div style="margin: 0 2px;">
+              <table style="width: 100%; border-collapse: collapse; border: 2.5px solid #1a365d; font-size: 1.15rem; background: #ffffff;">
+                <tbody>
+                  <tr style="border-bottom: 2px solid #1a365d;">
+                    <td colspan="2" style="padding: 12px 16px;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">शाळेचे नाव:</strong>
+                      <span style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin-left: 8px;">[${schoolName}]</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 2px solid #1a365d;">
+                    <td colspan="2" style="padding: 12px 16px;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">केंद्र:</strong>
+                      <span style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-left: 8px;">[${center}]</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 2px solid #1a365d;">
+                    <td style="width: 50%; padding: 12px 16px; border-right: 2px solid #1a365d;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">तालुका:</strong>
+                      <span style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-left: 8px;">[${taluka}]</span>
+                    </td>
+                    <td style="width: 50%; padding: 12px 16px;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">जिल्हा:</strong>
+                      <span style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-left: 8px;">[${district}]</span>
+                    </td>
+                  </tr>
+                  <tr style="border-bottom: 2px solid #1a365d;">
+                    <td style="width: 50%; padding: 12px 16px; border-right: 2px solid #1a365d;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">यु-डायस क्र.:</strong>
+                      <span style="font-size: 1.4rem; font-weight: 900; color: #1e3a8a; letter-spacing: 2px;">[${marathiUdise}]</span>
+                    </td>
+                    <td style="width: 50%; padding: 12px 16px;">
+                      <strong style="font-size: 1.25rem; color: #1a365d;">खात्याचे नाव:</strong>
+                      <span style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-left: 8px;">[४% सादील व शा.पो.आहार]</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="text-align: center; margin: 18px 0 10px 0;">
+              <div style="font-size: 1.7rem; font-weight: 900; color: #1a365d; margin-bottom: 8px;">शैक्षणिक वर्ष: <span style="color: #b45309;">${marathiYearLabel}</span></div>
+              <div style="font-size: 1.25rem; font-weight: 700; color: #1e3a8a; background: #f8fafc; border: 2px dashed #93c5fd; display: inline-block; padding: 7px 24px; border-radius: 6px;">
+                प्रारंभिक दिनांक: <strong style="color: #0f172a;">${marathiStartDate}</strong> &nbsp;ते&nbsp; अंतिम दिनांक: <strong style="color: #0f172a;">${marathiEndDate}</strong>
+              </div>
+            </div>
+
+            ${(customOptions.footerMode !== 'none') ? `
+            <div style="text-align: center; margin-bottom: 4px;">
+              <div style="font-size: 1.55rem; font-weight: 900; color: #1a365d; margin-bottom: 12px; font-family: 'Nirmala UI', 'Mangal', sans-serif; letter-spacing: normal;">महाराष्ट्र शासन, शिक्षण विभाग</div>
+              <div style="background: #1a365d; color: #ffffff; font-size: 1.1rem; font-weight: 800; letter-spacing: normal; padding: 6px 24px; border-radius: 4px; display: inline-block; font-family: 'Nirmala UI', 'Mangal', sans-serif;">शालेय अधिकृत दस्तऐवज</div>
+            </div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function getCashbookCoverModalOptions() {
+      const sName = document.getElementById("coverSchoolNameInput") ? document.getElementById("coverSchoolNameInput").value.trim() : "";
+      const udise = document.getElementById("coverUdiseInput") ? document.getElementById("coverUdiseInput").value.trim() : "";
+      const loc = document.getElementById("coverLocationInput") ? document.getElementById("coverLocationInput").value.trim() : "";
+      const yr = document.getElementById("coverYearInput") ? document.getElementById("coverYearInput").value.trim() : (appData.currentYear || "2025-26");
+      const accType = document.getElementById("coverAccountTypeSelect") ? document.getElementById("coverAccountTypeSelect").value : "sadil_mdm";
+      const footerMode = document.getElementById("coverFooterSelect") ? document.getElementById("coverFooterSelect").value : "full";
+
+      return {
+        schoolName: sName,
+        udise: udise,
+        location: loc,
+        year: yr,
+        accountType: accType,
+        footerMode: footerMode
+      };
+    }
+
+    function openCashbookCoverModal() {
+      const s = (typeof appData !== 'undefined' && appData && appData.schoolInfo) ? appData.schoolInfo : {};
+      const curAcc = (typeof getCurrentAccount === 'function' && typeof appData !== 'undefined' && appData && appData.accounts ? getCurrentAccount() : null) || {};
+      const rawYear = (typeof appData !== 'undefined' && appData && appData.currentYear) || "2025-26";
+
+      if (document.getElementById("coverSchoolNameInput")) {
+        document.getElementById("coverSchoolNameInput").value = s.name || "रा जि प शाळा मोहपाडा";
+      }
+      if (document.getElementById("coverUdiseInput")) {
+        document.getElementById("coverUdiseInput").value = s.udise || "27240219201";
+      }
+      if (document.getElementById("coverLocationInput")) {
+        const c = s.center || "नांदगाव";
+        const t = s.taluka || "कर्जत";
+        const d = s.district || "रायगड";
+        document.getElementById("coverLocationInput").value = "केंद्र – " + c + "   ता. " + t + "   जि. " + d;
+      }
+      if (document.getElementById("coverYearInput")) {
+        document.getElementById("coverYearInput").value = rawYear;
+      }
+      if (document.getElementById("coverAccountTypeSelect")) {
+        if (curAcc && curAcc.id === 'acc_4percent_only') {
+          document.getElementById("coverAccountTypeSelect").value = "sadil_only";
+        } else if (curAcc && curAcc.id === 'acc_ssa') {
+          document.getElementById("coverAccountTypeSelect").value = "ssa_only";
+        } else {
+          document.getElementById("coverAccountTypeSelect").value = "sadil_mdm";
+        }
+      }
+
+      updateCoverPreviewFromModal();
+      openModal("cashbookCoverModal");
+    }
+
+    function updateCoverPreviewFromModal() {
+      const container = document.getElementById("coverPagePreviewContainer");
+      if (!container) return;
+      const opts = getCashbookCoverModalOptions();
+      container.innerHTML = generateCashbookCoverHtml(opts);
+    }
+
+    function printCashbookCoverFromModal() {
+      const opts = getCashbookCoverModalOptions();
+      const printBox = document.getElementById("printContainer");
+      if (printBox) {
+        printBox.innerHTML = generateCashbookCoverHtml(opts);
+        window.print();
+      }
+    }
+
     function renderRegisterView() {
       const container = document.getElementById("registerSheetsContainer");
       container.innerHTML = "";
@@ -6705,6 +7449,19 @@
       const s = appData.schoolInfo;
       const yData = getCurrentYearData();
       const heads = yData.heads || [];
+
+      if (filter === "cover") {
+        const coverDiv = document.createElement("div");
+        coverDiv.innerHTML = generateCashbookCoverHtml();
+        container.appendChild(coverDiv);
+        return;
+      }
+
+      if (filter === "all") {
+        const coverDiv = document.createElement("div");
+        coverDiv.innerHTML = generateCashbookCoverHtml();
+        container.appendChild(coverDiv);
+      }
 
       if (filter === "all" || filter === "opening") {
         const openDiv = document.createElement("div");
@@ -8036,6 +8793,13 @@
       const heads = yData.heads || [];
       const s = appData.schoolInfo;
 
+      // 0. PRINT COVER PAGE
+      if (mode === "cover") {
+        printBox.innerHTML = generateCashbookCoverHtml();
+        window.print();
+        return;
+      }
+
       // 1. PRINT TAB 1: 1 April Opening Statement
       if (mode === "heads") {
         let rows = "";
@@ -8090,6 +8854,9 @@
       // 3. PRINT TAB 2 (B): ALL 12 MONTHS CONSOLIDATED IN DUAL LEDGER (समोरासमोर)
       else if (mode === "entry-all") {
         let sheetsHtml = "";
+
+        // Cover Page: Official Front Page of Book
+        sheetsHtml += generateCashbookCoverHtml();
 
         // First: 1st Page Opening Balance
         let opRows = "";
