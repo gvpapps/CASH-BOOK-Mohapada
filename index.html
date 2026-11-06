@@ -1106,61 +1106,51 @@
 
     /* ==================== MOBILE APP-LIKE UI STYLES (iOS & Android Native Feel) ==================== */
     @media screen and (max-width: 768px) {
-      /* 1. App Header: 2-Tier Native Mobile Layout */
+      /* 1. App Header: Ultra-Clean Minimalist Native Layout (PM Poshan Standard) */
+      .creator-top-bar {
+        display: none !important;
+      }
       .navbar {
         position: sticky !important;
         top: 0 !important;
-        z-index: 100 !important;
-        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%) !important;
+        z-index: 1000 !important;
+        background: linear-gradient(135deg, #091e42 0%, #1e3a8a 100%) !important;
         color: #ffffff !important;
-        padding: 0 0 6px 0 !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-      }
-      .creator-top-bar {
-        padding: 4px 8px !important;
-      }
-      .creator-name-txt {
-        font-size: 0.82rem !important;
-        letter-spacing: 0.2px !important;
-      }
-      .gold-crown, .gold-sparkle {
-        font-size: 0.95rem !important;
-      }
-      .panjika-badge-pill {
-        font-size: 0.65rem !important;
-        padding: 1px 6px !important;
+        padding: 0 !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18) !important;
       }
       .panjika-side-switcher {
-        display: flex !important;
+        display: none !important;
       }
       .nav-container {
         flex-direction: column !important;
         align-items: stretch !important;
-        gap: 6px !important;
-        padding: 6px 10px 0 10px !important;
+        gap: 0 !important;
+        padding: 0 10px !important;
       }
 
-      /* Tier 1: School Name on Left + School Edit & Cloud Sync on Right */
+      /* Tier 1: School Name on Left + School Edit & Cloud Sync on Right (Sleek 52px Native Row) */
       .brand-row {
+        height: 52px !important;
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
         width: 100% !important;
-        gap: 6px !important;
+        gap: 8px !important;
       }
       .brand-section {
         display: flex !important;
         align-items: center !important;
-        gap: 6px !important;
+        gap: 8px !important;
         flex: 1 !important;
         min-width: 0 !important;
         cursor: pointer;
       }
       .brand-icon {
-        font-size: 1.3rem !important;
-        padding: 3px 6px !important;
-        border-radius: 6px !important;
-        background: rgba(255,255,255,0.18) !important;
+        font-size: 1.35rem !important;
+        padding: 4px 6px !important;
+        border-radius: 8px !important;
+        background: rgba(255, 255, 255, 0.18) !important;
         flex-shrink: 0 !important;
       }
       .brand-text-container {
@@ -1169,8 +1159,8 @@
         overflow: hidden !important;
       }
       .brand-title {
-        font-size: 0.92rem !important;
-        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+        font-weight: 800 !important;
         color: #ffffff !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -1178,7 +1168,7 @@
         line-height: 1.2 !important;
       }
       .brand-sub {
-        font-size: 0.7rem !important;
+        font-size: 0.72rem !important;
         color: #93c5fd !important;
         white-space: nowrap !important;
         overflow: hidden !important;
@@ -1195,7 +1185,7 @@
       .btn-school-nav {
         display: inline-flex !important;
         padding: 4px 8px !important;
-        font-size: 0.76rem !important;
+        font-size: 0.74rem !important;
         font-weight: 700 !important;
         border-radius: 6px !important;
         background: rgba(255, 255, 255, 0.22) !important;
@@ -1212,7 +1202,7 @@
         align-items: center !important;
         gap: 4px !important;
         padding: 4px 8px !important;
-        font-size: 0.74rem !important;
+        font-size: 0.72rem !important;
         white-space: nowrap !important;
         border-radius: 6px !important;
         background: rgba(255, 255, 255, 0.2) !important;
@@ -1225,15 +1215,17 @@
         height: 7px;
       }
 
-      /* Tier 2: Account (60%) and Year (40%) Side-by-Side */
+      /* Tier 2: Account & Year Single Micro-Strip (Sleek 34px Native Control Bar) */
       .top-controls {
         display: flex !important;
         width: 100% !important;
         gap: 6px !important;
         align-items: center !important;
+        padding: 3px 0 6px 0 !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
       }
       .ctrl-account {
-        flex: 1.45 !important;
+        flex: 1.35 !important;
         min-width: 0 !important;
       }
       .ctrl-year {
@@ -1241,30 +1233,25 @@
         min-width: 0 !important;
       }
       .ctrl-group {
-        background: rgba(255, 255, 255, 0.16) !important;
-        border-radius: 8px !important;
-        padding: 3px 5px !important;
-        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        background: rgba(255, 255, 255, 0.14) !important;
+        border-radius: 6px !important;
+        padding: 2px 4px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
         display: flex !important;
         align-items: center !important;
-        gap: 3px !important;
+        gap: 2px !important;
         min-width: 0 !important;
       }
       .ctrl-group label {
-        font-size: 0.72rem !important;
-        color: #e2e8f0 !important;
-        white-space: nowrap !important;
-        font-weight: 700 !important;
-        flex-shrink: 0 !important;
-        display: inline !important;
+        display: none !important;
       }
       .ctrl-group select {
         background: transparent !important;
         color: #ffffff !important;
         border: none !important;
-        font-size: 0.82rem !important;
-        font-weight: 600 !important;
-        padding: 3px 1px !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        padding: 2px 0 !important;
         width: 100% !important;
         min-width: 0 !important;
         outline: none !important;
@@ -1279,52 +1266,64 @@
       }
       .ctrl-group .btn {
         display: inline-flex !important;
-        padding: 3px 6px !important;
-        font-size: 0.8rem !important;
-        border-radius: 5px !important;
+        padding: 2px 5px !important;
+        font-size: 0.75rem !important;
+        border-radius: 4px !important;
         flex-shrink: 0 !important;
-        background: rgba(255, 255, 255, 0.28) !important;
-        border: 1px solid rgba(255, 255, 255, 0.45) !important;
+        background: rgba(255, 255, 255, 0.25) !important;
+        border: 1px solid rgba(255, 255, 255, 0.4) !important;
         color: #ffffff !important;
       }
 
-      /* 2. Swipeable Sticky Top Tabs Bar on Mobile */
+      /* 2. PM POSHAN STANDARD: Completely hide top tabs strip on mobile (Bottom Dock handles all) */
       .tabs-bar {
-        display: block !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        white-space: nowrap !important;
-        background: #0f172a !important;
-        padding: 6px 8px !important;
-        position: sticky !important;
-        top: 0 !important;
-        z-index: 900 !important;
-        border-bottom: 1.5px solid rgba(59, 130, 246, 0.3) !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+        display: none !important;
       }
-      .tabs-container {
+
+      /* Tab 1 Header & Controls Mobile Optimization */
+      #tab-heads .card-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      #tab-heads .card-header > div:last-child {
         display: flex !important;
         gap: 6px !important;
-        width: max-content !important;
-        min-width: 100% !important;
-        padding: 0 4px !important;
+        width: 100% !important;
       }
-      .tab-btn {
-        padding: 6px 14px !important;
-        font-size: 0.8rem !important;
-        font-weight: 700 !important;
-        border-radius: 20px !important;
-        flex-shrink: 0 !important;
-        background: rgba(255, 255, 255, 0.12) !important;
-        color: #cbd5e1 !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        transition: all 0.2s ease !important;
+      #tab-heads .card-header .btn {
+        flex: 1 1 auto !important;
+        padding: 7px 4px !important;
+        font-size: 0.78rem !important;
+        justify-content: center !important;
+        text-align: center !important;
+        white-space: nowrap !important;
       }
-      .tab-btn.active {
-        background: #2563eb !important;
-        color: #ffffff !important;
-        border-color: #60a5fa !important;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4) !important;
+
+      /* Previous Year Carry Sync Card (Native Mobile Styling) */
+      .prev-year-sync-box {
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+        margin-bottom: 12px !important;
+      }
+      .prev-year-sync-box .sync-top-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 6px !important;
+      }
+      .prev-year-sync-box .sync-amount-pill {
+        width: 100% !important;
+        text-align: center !important;
+        font-size: 1.25rem !important;
+        padding: 5px 10px !important;
+        box-sizing: border-box !important;
+      }
+      .prev-year-sync-box .sync-btn {
+        width: 100% !important;
+        padding: 8px 12px !important;
+        font-size: 0.88rem !important;
+        justify-content: center !important;
+        margin-top: 6px !important;
       }
 
       /* 3. Main Content Spacing for Bottom Dock and Quick FAB */
@@ -1423,43 +1422,7 @@
       }
       /* ==================== GAV PANJIKA MOBILE STYLING ==================== */
       .panjika-banner {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        background: linear-gradient(135deg, #fefce8 0%, #fffbeb 50%, #fef3c7 100%) !important;
-        border: 1.5px solid #fde047 !important;
-        border-radius: 10px !important;
-        padding: 8px 12px !important;
-        margin-bottom: 10px !important;
-        box-shadow: 0 1px 4px rgba(234, 179, 8, 0.15) !important;
-      }
-      .panjika-banner-left {
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-      }
-      .panjika-badge-icon {
-        font-size: 1.3rem !important;
-      }
-      .panjika-banner-title {
-        font-size: 0.85rem !important;
-        font-weight: 800 !important;
-        color: #854d0e !important;
-        line-height: 1.2 !important;
-      }
-      .panjika-banner-sub {
-        font-size: 0.7rem !important;
-        color: #a16207 !important;
-      }
-      .panjika-status-chip {
-        font-size: 0.7rem !important;
-        font-weight: 700 !important;
-        background: #fef08a !important;
-        color: #713f12 !important;
-        border: 1px solid #facc15 !important;
-        border-radius: 20px !important;
-        padding: 2px 7px !important;
-        white-space: nowrap !important;
+        display: none !important; /* Hide bulky yellow banner on mobile (clean native screen) */
       }
 
       .ledger-col table thead,
@@ -6658,18 +6621,23 @@
         const prevLedger = calculateFullYearLedger(prevYr, curAcc);
         if (bannerEl) {
           bannerEl.innerHTML = `
-            <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-              <div>
+            <div class="prev-year-sync-box" style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;">
+              <div class="sync-top-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
                 <div style="font-weight: 700; color: #166534; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
-                  <span>🔄</span> मागील आर्थिक वर्ष (${prevYr}) 31 मार्च अखेर शिल्लक: <span style="font-family: var(--hw-font); font-size: 1.15rem; color: #14532d;">₹ ${toMarathiNum(prevLedger.finalTotalClosing)} /-</span>
+                  <span>🔄</span> मागील आर्थिक वर्ष (${prevYr}) 31 मार्च अखेर शिल्लक:
                 </div>
-                <div style="color: #15803d; font-size: 0.82rem; margin-top: 3px;">
-                  ही शिल्लक 1 एप्रिल सुरुवातीची शिल्लक म्हणून आणण्यासाठी समोरील बटण दाबा:
+                <div class="sync-amount-pill" style="background: #dcfce7; border: 1.5px solid #86efac; border-radius: 8px; padding: 4px 12px; font-family: var(--hw-font); font-size: 1.2rem; font-weight: 800; color: #14532d; white-space: nowrap !important; display: inline-block;">
+                  ₹ ${toMarathiNum(prevLedger.finalTotalClosing)} /-
                 </div>
               </div>
-              <button type="button" class="btn btn-sm btn-success" onclick="syncOpeningFromPreviousYear(null, false)" style="font-weight: 600; white-space: nowrap; padding: 6px 14px;">
-                🔄 31 मार्च शिल्लक सिंक करा
-              </button>
+              <div class="sync-bottom-row" style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div style="color: #15803d; font-size: 0.82rem;">
+                  ही शिल्लक 1 एप्रिल सुरुवातीची शिल्लक म्हणून आणण्यासाठी समोरील बटण दाबा:
+                </div>
+                <button type="button" class="btn btn-sm btn-success sync-btn" onclick="syncOpeningFromPreviousYear(null, false)" style="font-weight: 700; white-space: nowrap; padding: 7px 16px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                  🔄 31 मार्च शिल्लक सिंक करा
+                </button>
+              </div>
             </div>
           `;
         }
