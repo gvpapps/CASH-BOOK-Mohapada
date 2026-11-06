@@ -1,9 +1,14 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
     "cashbook_schools": {
+      ".read": true,
+      "test_ping": {
+        ".read": true,
+        ".write": true
+      },
       "$schoolKey": {
+        ".read": true,
+        ".write": true,
         ".validate": "newData.hasChildren(['appData', 'updatedAt', 'schoolCode']) && ('cashbook_' + newData.child('schoolCode').val() === $schoolKey) && (!data.exists() || !data.child('updatedAt').exists() || newData.child('updatedAt').val() >= data.child('updatedAt').val())"
       }
     },
@@ -15,9 +20,23 @@
     },
     "schools": {
       ".read": true,
-      ".write": true
+      "$schoolKey": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "deleted_schools": {
+      ".read": true,
+      "$schoolKey": {
+        ".read": true,
+        ".write": true
+      }
     },
     "admin_config": {
+      ".read": true,
+      ".write": true
+    },
+    "test_ping": {
       ".read": true,
       ".write": true
     }
