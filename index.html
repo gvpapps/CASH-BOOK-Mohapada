@@ -1124,8 +1124,50 @@
         padding: 0 !important;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18) !important;
       }
+      /* Segmented Panjika Switcher on Mobile */
       .panjika-side-switcher {
-        display: none !important;
+        display: flex !important;
+        background: #e2e8f0 !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 4px !important;
+        border-radius: 12px !important;
+        gap: 4px !important;
+        margin: 0 0 14px 0 !important;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      .panjika-switch-btn {
+        flex: 1 !important;
+        padding: 8px 4px !important;
+        border: none !important;
+        background: transparent !important;
+        color: #64748b !important;
+        font-weight: 700 !important;
+        font-size: 0.82rem !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px !important;
+        transition: all 0.2s ease !important;
+        white-space: nowrap !important;
+        user-select: none !important;
+        touch-action: manipulation !important;
+      }
+      .panjika-switch-btn.active {
+        background: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+      }
+      .panjika-switch-btn#pBtnJama.active {
+        color: #15803d !important;
+      }
+      .panjika-switch-btn#pBtnKharch.active {
+        color: #b91c1c !important;
+      }
+      .panjika-switch-btn#pBtnDual.active {
+        color: #1e40af !important;
       }
       .nav-container {
         flex-direction: column !important;
@@ -1435,6 +1477,7 @@
         padding: 0 10px calc(85px + env(safe-area-inset-bottom, 0px)) !important;
       }
       /* When on Tab 2, extra bottom padding for floating entry bar */
+      #tab-entry,
       .main-content:has(#tab-entry.active) {
         padding-bottom: calc(145px + env(safe-area-inset-bottom, 0px)) !important;
       }
@@ -2951,7 +2994,7 @@
   </main>
 
   <!-- Mobile Floating Quick Add Bar (Only in Tab 2 on Mobile - PM Poshan Style) -->
-  <div class="mobile-quick-bar no-print" id="mobileQuickBar" style="display: none;">
+  <div class="mobile-quick-bar no-print" id="mobileQuickBar">
     <button class="btn btn-success" onclick="openTransactionModal('jama')" style="background: linear-gradient(135deg, #16a34a, #15803d) !important; font-weight: 800; border: none; box-shadow: 0 3px 8px rgba(22, 163, 74, 0.4);">
       ➕ नवीन जमा नोंद
     </button>
@@ -6880,11 +6923,15 @@
       const kCount = (mData.kharch || []).length;
       const btnJ = document.getElementById("pBtnJama");
       const btnK = document.getElementById("pBtnKharch");
+      const btnD = document.getElementById("pBtnDual");
       if (btnJ) {
-        btnJ.innerHTML = `📗 जमा बाजू <span class="panjika-count-badge jama">${jCount}</span>`;
+        btnJ.innerHTML = `📗 जमा <span class="panjika-count-badge jama">${jCount}</span>`;
       }
       if (btnK) {
-        btnK.innerHTML = `📕 खर्च बाजू <span class="panjika-count-badge kharch">${kCount}</span>`;
+        btnK.innerHTML = `📕 खर्च <span class="panjika-count-badge kharch">${kCount}</span>`;
+      }
+      if (btnD) {
+        btnD.innerHTML = `📖 दोन्ही <span class="panjika-count-badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;">${jCount + kCount}</span>`;
       }
 
       // Jama Table
@@ -7632,6 +7679,9 @@
         authEngine.showPendingApprovalAlert("जमा व खर्च नोंदी करणे");
         return;
       }
+      if (window.innerWidth <= 768 && currentPanjikaSide !== 'dual' && typeof switchPanjikaSide === 'function') {
+        switchPanjikaSide(type);
+      }
       document.getElementById("txType").value = type;
       document.getElementById("txEditId").value = editId || "";
 
@@ -7859,6 +7909,9 @@
         syncOpeningFromPreviousYear(nextYr, true);
       }
       saveData(true); closeModal("txModal");
+      if (window.innerWidth <= 768 && currentPanjikaSide !== 'dual') {
+        currentPanjikaSide = type;
+      }
       refreshCurrentView();
       showToast("नोंद यशस्वीरीत्या सेव्ह झाली!");
     }
