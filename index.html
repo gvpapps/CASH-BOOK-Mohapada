@@ -4379,16 +4379,14 @@
         const dd = document.getElementById('userAuthDropdown');
         if (dd) dd.style.display = 'none';
 
-        // Save previous school data before switching
+        // Switch Firebase schoolCode & reset pending flag so cloud pull is never blocked
         try {
-          if (typeof saveData === 'function') saveData();
-        } catch(e) { console.warn('saveData error on login:', e); }
-
-        // Switch Firebase schoolCode & AUTO-DOWNLOAD latest cloud data FIRST
-        try {
-          if (typeof firebaseSync !== 'undefined' && firebaseSync.config) {
-            firebaseSync.config.schoolCode = matchedUdise;
-            firebaseSync.saveConfig();
+          if (typeof firebaseSync !== 'undefined') {
+            if (firebaseSync.config) {
+              firebaseSync.config.schoolCode = matchedUdise;
+              firebaseSync.saveConfig();
+            }
+            firebaseSync.hasPendingChanges = false;
           }
         } catch(e) {}
 
@@ -4399,14 +4397,18 @@
           }
         } catch(e) { console.warn('loadData error on login:', e); }
 
+        // AUTO-DOWNLOAD latest cloud data with forceReplace = true
         if (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.firebaseUrl) {
           showToast(`🔄 ${this.currentUser.name} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
           try {
-            await firebaseSync.pullData(true, true);
-          } catch(e) {}
+            firebaseSync.hasPendingChanges = false;
+            await firebaseSync.pullData(false, true);
+          } catch(e) {
+            console.warn('Initial cloud pull failed on login:', e);
+          }
         }
 
-        // Update School Info in App Data after pull
+        // Update School Info in App Data after pull and persist
         if (appData && appData.schoolInfo) {
           appData.schoolInfo.udise = matchedUdise;
           if (schoolProfile && schoolProfile.name) appData.schoolInfo.name = schoolProfile.name;
@@ -5747,17 +5749,24 @@
       }
     });
 
-    // Cloud status pill click router: silent background sync and status toast
-    function handleCloudPillClick() {
+    // Cloud status pill click router: 2-way live sync (Pull + Merge + Push) and status feedback
+    async function handleCloudPillClick() {
       if (typeof authEngine !== 'undefined' && authEngine.currentUser && authEngine.currentUser.role === 'SUPER_ADMIN') {
         switchTab('firebase');
-      } else {
-        if (typeof firebaseSync !== 'undefined' && firebaseSync.pushData) {
-          firebaseSync.pushData(true);
-        }
-        const lastSync = (typeof firebaseSync !== 'undefined' && firebaseSync.config && firebaseSync.config.lastSyncTime) ? firebaseSync.formatTimeStr(firebaseSync.config.lastSyncTime) : 'सुरक्षित';
-        if (typeof showToast === 'function') {
-          showToast(`☁️ Hostinger MySQL क्लाऊड सिंक सुरक्षित कार्यरत आहे (शेवटचा सिंक: ${lastSync})`, 'success');
+        return;
+      }
+      if (typeof firebaseSync !== 'undefined') {
+        showToast('🔄 Google Firebase सिंक सुरू आहे...', 'info');
+        try {
+          // 1. Pull & Merge from Cloud first
+          await firebaseSync.pullData(false, false);
+          // 2. Push any unsaved local entries
+          await firebaseSync.pushData(true);
+          refreshCurrentView();
+          const lastSync = firebaseSync.formatTimeStr(firebaseSync.config.lastSyncTime);
+          showToast(`🟢 Google Firebase क्लाऊड सिंक यशस्वी! (शेवटचा सिंक: ${lastSync})`, 'success');
+        } catch(e) {
+          showToast('⚠️ सिंक करताना अडचण आली, कृपया इंटरनेट तपासा.', 'warning');
         }
       }
     }
@@ -9578,8 +9587,63 @@
             if (checkRes.ok) existingRemote = await checkRes.json();
           } catch(e) {}
 
-          if (existingRemote && existingRemote.updatedAt && !isForce) {
-            if (existingRemote.updatedAt > (this.config.lastSyncTime || '')) {
+          // Helper to count transactions
+          const countTotalTx = (d) => {
+            if (!d || !Array.isArray(d.accounts)) return 0;
+            let c = 0;
+            d.accounts.forEach(a => {
+              if (!a || !a.years) return;
+              Object.keys(a.years).forEach(y => {
+                const yr = a.years[y];
+                if (!yr || !yr.months) return;
+                Object.keys(yr.months).forEach(m => {
+                  const mo = yr.months[m];
+                  if (mo) {
+                    c += (Array.isArray(mo.jama) ? mo.jama.length : 0);
+                    c += (Array.isArray(mo.kharch) ? mo.kharch.length : 0);
+                  }
+                });
+              });
+            });
+            return c;
+          };
+          const countTotalOpeningBal = (d) => {
+            if (!d || !Array.isArray(d.accounts)) return 0;
+            let sum = 0;
+            d.accounts.forEach(a => {
+              if (!a || !a.years) return;
+              Object.keys(a.years).forEach(y => {
+                const yr = a.years[y];
+                if (!yr || !Array.isArray(yr.heads)) return;
+                yr.heads.forEach(h => {
+                  sum += (Number(h.openingBalance) || 0);
+                });
+              });
+            });
+            return sum;
+          };
+
+          if (existingRemote && existingRemote.appData) {
+            const localTxCount = countTotalTx(appData);
+            const localBalCount = countTotalOpeningBal(appData);
+            const remoteTxCount = countTotalTx(existingRemote.appData);
+            const remoteBalCount = countTotalOpeningBal(existingRemote.appData);
+
+            // BLANK OVERWRITE PROTECTION GUARD:
+            // If local device is blank (0 tx and 0 opening balance), but remote cloud has real data,
+            // NEVER overwrite cloud! Pull cloud data instead and populate local device!
+            if (localTxCount === 0 && localBalCount === 0 && (remoteTxCount > 0 || remoteBalCount > 0)) {
+              console.warn("BLANK DATA GUARD: Prevented blank local device from overwriting populated remote cloud! Pulling remote data instead...");
+              this.mergeAppData(existingRemote.appData, existingRemote, true);
+              saveData();
+              refreshCurrentView();
+              this.config.status = 'synced';
+              this.config.lastSyncTime = existingRemote.updatedAt || new Date().toISOString();
+              this.updateUIStatus();
+              return true;
+            }
+
+            if (existingRemote.updatedAt && (existingRemote.updatedAt > (this.config.lastSyncTime || ''))) {
               console.log("Remote cloud data is newer. Merging remote data first before pushing...");
               this.mergeAppData(existingRemote.appData, existingRemote);
               payload.appData = appData;
@@ -9627,7 +9691,7 @@
         this.config.firebaseUrl = cleanBaseUrl;
         this.config.enabled = true;
 
-        if (isSilent) {
+        if (isSilent && !forceReplace) {
           const isUserTypingNow = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
           if (isUserTypingNow || this.hasPendingChanges) {
             return true;
