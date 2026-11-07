@@ -159,6 +159,7 @@
     .desktop-only-inline { display: inline !important; }
     .mobile-only-inline { display: none !important; }
     .desktop-auth-container { display: inline-block !important; }
+    .btn-top-logout, .btn-top-login { display: none; }
 
     /* Panjika Side Switcher (Mobile Ledger Navigation) */
     .panjika-side-switcher {
@@ -1240,21 +1241,44 @@
         gap: 5px !important;
         flex-shrink: 0 !important;
       }
-      .btn-school-nav {
+      .btn-top-logout {
         display: inline-flex !important;
         align-items: center !important;
-        padding: 4px 8px !important;
-        font-size: 0.72rem !important;
-        font-weight: 700 !important;
+        gap: 4px !important;
+        padding: 4px 9px !important;
+        font-size: 0.76rem !important;
+        font-weight: 800 !important;
         border-radius: 6px !important;
-        background: rgba(255, 255, 255, 0.18) !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        color: #ffffff !important;
+        background: rgba(239, 68, 68, 0.22) !important;
+        border: 1px solid rgba(248, 113, 113, 0.5) !important;
+        color: #fee2e2 !important;
+        height: 28px !important;
         white-space: nowrap !important;
+        cursor: pointer !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
         touch-action: manipulation;
+        transition: all 0.15s ease !important;
       }
-      .btn-school-nav:active {
+      .btn-top-logout:active {
         transform: scale(0.95);
+        background: rgba(239, 68, 68, 0.38) !important;
+      }
+      .btn-top-login {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        padding: 4px 9px !important;
+        font-size: 0.76rem !important;
+        font-weight: 800 !important;
+        border-radius: 6px !important;
+        background: rgba(59, 130, 246, 0.22) !important;
+        border: 1px solid rgba(96, 165, 250, 0.5) !important;
+        color: #dbeafe !important;
+        height: 28px !important;
+        white-space: nowrap !important;
+        cursor: pointer !important;
+        touch-action: manipulation;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
       }
       .cloud-pill {
         display: inline-flex !important;
@@ -2078,7 +2102,9 @@
 
     @media (min-width: 769px) {
       .mobile-quick-bar,
-      .mobile-bottom-nav {
+      .mobile-bottom-nav,
+      .btn-top-logout,
+      .btn-top-login {
         display: none !important;
       }
     }
@@ -2320,10 +2346,14 @@
             <span id="cloudStatusText" class="desktop-only-inline">🟢 ☁️ क्लाऊड सिंक</span>
             <span class="mobile-only-inline font-bold" style="display: none; font-size: 0.72rem; color: #6ee7b7;">सिंक</span>
           </div>
-          <!-- School Info & Settings Button -->
-          <button class="btn-school-nav" onclick="openSchoolModal()" title="शाळेची सर्व माहिती बदला / UDISE">
-            <span class="desktop-only-inline">✏️ <span class="nav-text">शाळा माहिती</span></span>
-            <span class="mobile-only-inline font-bold" style="display: none;">शाळा ▾</span>
+          <!-- Desktop School Info & Settings Button -->
+          <button class="btn-school-nav desktop-only-inline" onclick="openSchoolModal()" title="शाळेची सर्व माहिती बदला / UDISE">
+            ✏️ <span class="nav-text">शाळा माहिती</span>
+          </button>
+          <!-- Mobile Logout Button (Replaces duplicate 'शाळा ▾') -->
+          <button class="btn-top-logout mobile-only-inline" id="topMobileLogoutBtn" onclick="handleTopMobileAuthClick()" title="खाते लॉगआउट करा" style="display: none;">
+            <span>🚪</span>
+            <span>लॉगआउट</span>
           </button>
           <!-- User Profile / Auth Pill -->
           <div style="position: relative;" class="desktop-auth-container">
@@ -4085,6 +4115,12 @@
           }
           if (logoutBtn) logoutBtn.style.display = 'block';
           if (loginBtn) loginBtn.style.display = 'none';
+          const mobLogoutBtn = document.getElementById('topMobileLogoutBtn');
+          if (mobLogoutBtn) {
+            mobLogoutBtn.innerHTML = '<span>🚪</span><span>लॉगआउट</span>';
+            mobLogoutBtn.title = 'खाते लॉगआउट करा';
+            mobLogoutBtn.className = 'btn-top-logout mobile-only-inline';
+          }
         } else {
           if (nameEl) nameEl.innerText = 'लॉगिन';
           if (iconEl) iconEl.innerText = '👤';
@@ -4094,6 +4130,12 @@
           if (subBtn) subBtn.style.display = 'none';
           if (logoutBtn) logoutBtn.style.display = 'none';
           if (loginBtn) loginBtn.style.display = 'block';
+          const mobLogoutBtn = document.getElementById('topMobileLogoutBtn');
+          if (mobLogoutBtn) {
+            mobLogoutBtn.innerHTML = '<span>🔐</span><span>लॉगिन</span>';
+            mobLogoutBtn.title = 'खाते लॉगिन करा';
+            mobLogoutBtn.className = 'btn-top-login mobile-only-inline';
+          }
 
           if (tabBtnLogin) tabBtnLogin.style.display = 'none';
           if (mobileNavLogin) mobileNavLogin.style.display = 'none';
@@ -5673,6 +5715,16 @@
       }
     };
     window.authEngine = authEngine;
+
+    function handleTopMobileAuthClick() {
+      if (typeof authEngine !== 'undefined') {
+        if (authEngine.currentUser) {
+          authEngine.logout();
+        } else {
+          authEngine.openAuthModal('login');
+        }
+      }
+    }
 
     function toggleUserAuthMenu() {
       if (typeof authEngine !== 'undefined' && !authEngine.currentUser) {
