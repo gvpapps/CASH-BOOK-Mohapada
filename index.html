@@ -2424,7 +2424,7 @@
         🏫 5. शाळा माहिती व बॅकअप
       </button>
       <button class="tab-btn" id="tabBtnFirebase" class="tab-btn admin-only" onclick="switchTab('firebase')" data-tab="firebase" style="display: none !important;">
-        ☁️ 6. Hostinger MySQL सिंक
+        ☁️ 6. Google Firebase सिंक
       </button>
       <button class="tab-btn" id="tabBtnAdmin" class="tab-btn admin-only" onclick="switchTab('admin')" data-tab="admin" style="display: none; background: #fef3c7; color: #92400e; border: 2px solid #f59e0b; font-weight: 800;">
         👑 ॲडमिन पॅनल (शाळा ॲक्टिव्हेशन)
@@ -2888,16 +2888,16 @@
       </div>
     </section>
 
-    <!-- ==================== TAB 6: HOSTINGER MYSQL LIVE CLOUD SYNC ==================== -->
+    <!-- ==================== TAB 6: GOOGLE FIREBASE LIVE CLOUD SYNC ==================== -->
     <section id="tab-firebase" class="tab-pane">
       
-      <!-- 1. Hostinger Live Status Banner -->
+      <!-- 1. Google Firebase Live Status Banner -->
       <div class="card" style="border-top: 4px solid #2563eb;">
         <div class="card-header">
-          <div class="card-title">☁️ Hostinger MySQL क्लाऊड डेटाबेस (लाईव्ह सिंक)</div>
+          <div class="card-title">☁️ Google Firebase रिअल-टाइम क्लाऊड डेटाबेस (लाईव्ह सिंक)</div>
         </div>
         <p style="color: #475569; font-size: 0.88rem; margin-bottom: 12px;">
-          मोबाईल, लॅपटॉप आणि संगणक या सर्व उपकरणांवर शाळेचा संपूर्ण कॅश बुक डेटा एकाच वेळी आपोआप अद्ययावत ठेवण्यासाठी Hostinger MySQL सर्व्हर जोडणी वापरली जाते.
+          मोबाईल, लॅपटॉप आणि संगणक या सर्व उपकरणांवर शाळेचा संपूर्ण कॅश बुक डेटा Google Docs प्रमाणे रिअल-टाइममध्ये अद्ययावत ठेवण्यासाठी Google Firebase Realtime Database वापरले जाते.
         </p>
 
         <div id="fbTabStatusBox" style="margin-bottom: 16px; padding: 14px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;">
@@ -4405,6 +4405,9 @@
             await firebaseSync.pullData(false, true);
           } catch(e) {
             console.warn('Initial cloud pull failed on login:', e);
+          }
+          if (typeof firebaseSync.initRealtimeSSE === 'function') {
+            firebaseSync.initRealtimeSSE();
           }
         }
 
@@ -9065,12 +9068,90 @@
         } catch(e) {}
       },
 
+      // ==================== GOOGLE DOCS REALTIME EVENTSTREAM (SSE) ====================
+      sseSource: null,
+      sseReconnectTimer: null,
+
+      initRealtimeSSE() {
+        if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+        if (this.sseSource) {
+          try { this.sseSource.close(); } catch(e) {}
+          this.sseSource = null;
+        }
+        if (this.sseReconnectTimer) clearTimeout(this.sseReconnectTimer);
+
+        const currentUdise = this.getSchoolUdise();
+        if (!currentUdise) return;
+
+        const cleanBaseUrl = (this.config.firebaseUrl || 'https://cashbook-mohapada-default-rtdb.firebaseio.com').trim().replace(/\/$/, '');
+        const sseUrl = `${cleanBaseUrl}/cashbook_schools/cashbook_${currentUdise}.json`;
+
+        try {
+          this.sseSource = new EventSource(sseUrl);
+
+          this.sseSource.addEventListener('put', (e) => {
+            this.handleRealtimeSSEMessage(e.data);
+          });
+
+          this.sseSource.addEventListener('patch', (e) => {
+            this.handleRealtimeSSEMessage(e.data);
+          });
+
+          this.sseSource.onerror = (err) => {
+            console.warn("Realtime SSE stream interrupted. Auto-reconnecting in 5s...", err);
+            try { this.sseSource.close(); } catch(e) {}
+            this.sseSource = null;
+            this.sseReconnectTimer = setTimeout(() => {
+              this.initRealtimeSSE();
+            }, 5000);
+          };
+        } catch(err) {
+          console.warn("Realtime EventSource init error:", err);
+        }
+      },
+
+      handleRealtimeSSEMessage(rawData) {
+        if (!rawData) return;
+        try {
+          const parsed = JSON.parse(rawData);
+          const remoteRoot = (parsed && parsed.data) ? parsed.data : parsed;
+          if (!remoteRoot) return;
+
+          const remoteAppData = remoteRoot.appData || (remoteRoot.path === '/' && remoteRoot.data && remoteRoot.data.appData);
+          if (!remoteAppData || typeof remoteAppData !== 'object') return;
+
+          // Never overwrite while user is actively typing in an input
+          const isUserTyping = !!(typeof document !== 'undefined' && document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName));
+          if (isUserTyping) return;
+
+          // Compare remote updatedAt with our last sync time
+          const remoteTime = remoteRoot.updatedAt || '';
+          if (remoteTime && this.config.lastSyncTime && remoteTime === this.config.lastSyncTime) {
+            return;
+          }
+
+          console.log("⚡ Realtime Google Docs SSE Event received from Firebase! Merging remote changes...");
+          this.mergeAppData(remoteAppData, remoteRoot, false);
+          saveData();
+          if (typeof refreshCurrentView === 'function') {
+            refreshCurrentView();
+          }
+          this.config.lastSyncTime = remoteTime || new Date().toISOString();
+          this.config.status = 'synced';
+          this.saveConfig();
+          this.updateUIStatus();
+        } catch(e) {
+          console.warn("Error handling realtime SSE payload:", e);
+        }
+      },
+
       init() {
         this.loadConfig();
         this.checkUrlParamsForSync();
         this.bindOnlineEvents();
         this.startAutoPolling();
         this.startFiveSecAutoSave();
+        this.initRealtimeSSE();
         this.updateUIStatus();
 
         // Auto-pull on startup if configured & enabled
@@ -9175,6 +9256,7 @@
           if (this.config.enabled) {
             this.config.status = 'idle';
             this.updateUIStatus();
+            if (typeof this.initRealtimeSSE === 'function') this.initRealtimeSSE();
             if (this.config.firebaseUrl && this.config.autoSync) {
               this.pushData(true);
             }
@@ -9311,7 +9393,7 @@
             statusBox.innerHTML = `
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
-                  <strong style="color: #475569; font-size: 1rem;">⚪ Hostinger MySQL सिंक सध्या बंद आहे</strong>
+                  <strong style="color: #475569; font-size: 1rem;">⚪ Google Firebase सिंक सध्या बंद आहे</strong>
                   <div style="color: #64748b; font-size: 0.82rem; margin-top: 2px;">
                     मास्टर डेटाबेस जोडणीसाठी <strong>"💾 सेव्ह करा व सुरू करा"</strong> दाबा.
                   </div>
@@ -9324,7 +9406,7 @@
             statusBox.innerHTML = `
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
-                  <strong style="color: #d97706; font-size: 1rem;">🔄 Hostinger MySQL डेटा ट्रान्सफर सुरू आहे...</strong>
+                  <strong style="color: #d97706; font-size: 1rem;">🔄 Google Firebase डेटा ट्रान्सफर सुरू आहे...</strong>
                   <div style="color: #92400e; font-size: 0.82rem; margin-top: 2px;">
                     ${udiseDisplay} | कृपया थोडी प्रतीक्षा करा...
                   </div>
@@ -9340,14 +9422,14 @@
               <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
                 <div>
                   <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    <strong style="color: #15803d; font-size: 1rem;">🟢 Hostinger MySQL रिअल-टाईम सिंक सक्रिय आहे!</strong>
+                    <strong style="color: #15803d; font-size: 1rem;">🟢 Google Firebase रिअल-टाईम सिंक सक्रिय आहे!</strong>
                     ${queueBadge}
                   </div>
                   <div style="color: #166534; font-size: 0.82rem; margin-top: 4px;">
                     ${udiseDisplay} &nbsp;|&nbsp; शेवटचा यशस्वी सिंक: <strong>${this.formatTimeStr(this.config.lastSyncTime)}</strong>
                   </div>
                   <div style="color: #475569; font-size: 0.78rem; margin-top: 3px; word-break: break-all;">
-                    🔗 जोडलेला डेटाबेस: <code>Google Firebase Realtime Database</code>
+                    ⚡ Google Docs प्रमाणे Realtime SSE EventStream सक्रिय आहे.
                   </div>
                 </div>
                 <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem;">जोडलेले (Live)</span>
@@ -9469,7 +9551,7 @@
           if (typeof renderSchoolInfoCard === 'function') renderSchoolInfoCard();
         }
 
-        if (typeof showToast === 'function') showToast('⚙️ Hostinger MySQL सिंक सेटिंग्ज जतन झाल्या!');
+        if (typeof showToast === 'function') showToast('⚙️ Google Firebase सिंक सेटिंग्ज जतन झाल्या!');
         await this.pushData(false);
       },
 
@@ -9491,6 +9573,7 @@
         loadData(targetUdise);
         showToast(`🔄 शाळा ${targetUdise} चा डेटा क्लाऊडवरून डाऊनलोड होत आहे...`);
         await this.pullData(false, true);
+        if (typeof this.initRealtimeSSE === 'function') this.initRealtimeSSE();
         refreshCurrentView();
         showToast(`✅ शाळा ${targetUdise} चा डेटा यशस्वीरीत्या उघडला व सिंक झाला!`);
       },
